@@ -38,5 +38,14 @@
 }
 
 .read-the-docs {
-  color: #888;
+  color: #888888;
+}
+
+.awsui_side-navigation__root {
+  background-color: #333333; /* Dark background for the side navigation */
+  color: #FFFFFF; /* Light text color for readability */
+}
+
+.awsui_side-navigation__item--active {
+  background-color: #1a1a1a; /* Slightly lighter background for active items */
 }

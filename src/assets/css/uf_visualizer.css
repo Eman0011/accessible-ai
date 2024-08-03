@@ -1,0 +1,103 @@
+@charset "utf-8";
+
+body h1 {
+  text-align: center;
+}
+
+#alg_controls {
+  text-align: center;
+}
+
+#text_controls {
+  text-align: center;
+}
+
+svg {
+  background-color: #FFF;
+  cursor: default;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+  border-style: solid;
+  border-width: 3px;
+}
+
+svg:not(.active):not(.ctrl) {
+  cursor: crosshair;
+}
+
+circle.node {
+  stroke-width: 1.5px;
+  cursor: pointer;
+}
+
+svg:text {
+  text-anchor: middle;
+  dy: .35em;
+}
+
+text {
+  font: 15px sans-serif;
+  pointer-events: none;
+  text-anchor: middle;
+  dy: .35em;
+}
+
+text.id {
+  text-anchor: middle;
+  font-weight: bold;
+}
+
+.indices {
+
+}
+
+#container {
+  position: relative;
+}
+
+#UnionView {
+  width: 100%;
+  min-height: 400px;
+}
+
+#InfoWindow {
+  display: table;
+  border: 1.5px solid;
+  border: #000;
+  position: absolute;
+  left: 4px;
+  bottom: 33px;
+}
+
+#CodeWindow {
+  display: table;
+  height: 0px;
+  position: absolute;
+  right: 4px;
+  bottom: 33px;
+  text-align: left;
+}
+
+#InfoWindow p {
+  padding-left: 10px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-right: 10px;
+  display:table-cell;
+  vertical-align:middle;
+  text-align: left;
+}
+
+#CodeWindow p {
+  display:table-cell;
+  vertical-align:middle;
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-family: Pragmata, Menlo, 'DejaVu LGC Sans Mono';
+  font-size: 12px;
+}
