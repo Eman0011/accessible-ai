@@ -9,7 +9,7 @@ frontend:
   phases:
     build:
       commands:
-        - npm run build
+        - NODE_OPTIONS='--max_old_space_size=4096' npm run build
   artifacts:
     baseDirectory: dist
     files:
