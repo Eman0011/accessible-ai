@@ -1,25 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import Input from "@cloudscape-design/components/input";
-import { SpaceBetween, Button } from '@cloudscape-design/components';
+import { Button, SpaceBetween } from '@cloudscape-design/components';
+import { useEffect, useState } from 'react';
 import Lottie from 'react-lottie';
 
-import standingLottie from '../../../assets/animations/eda_standing.json'
+import boredLottie from '../../../assets/animations/eda_bored.json';
 import fidgetingLottie from '../../../assets/animations/eda_fidgeting.json';
 import jumpingLottie from '../../../assets/animations/eda_jumping.json';
-import wavingLottie from '../../../assets/animations/eda_waving.json'
-import boredLottie from '../../../assets/animations/eda_bored.json'
+import standingLottie from '../../../assets/animations/eda_standing.json';
+import wavingLottie from '../../../assets/animations/eda_waving.json';
+import { Animation, transformAnimationData } from './constants';
 
-const animations = {
-  standing: standingLottie,
-  fidgeting: fidgetingLottie,
-  bored: boredLottie,
-  waving: wavingLottie,
-  jumping: jumpingLottie,
+
+const animations: Record<string, Animation> = {
+  standing: transformAnimationData(standingLottie),
+  fidgeting: transformAnimationData(fidgetingLottie),
+  bored: transformAnimationData(boredLottie),
+  waving: transformAnimationData(wavingLottie),
+  jumping: transformAnimationData(jumpingLottie),
 };
 
 const animationProbabilities = [0.5, 0.2, 0.15, 0.1, 0.05];
 
-const getRandomAnimation = (animations) => {
+const getRandomAnimation = (animations: Record<string, any>) => {
   const animationKeys = Object.keys(animations);
   const rand = Math.random();
   let sum = 0;
@@ -34,7 +35,7 @@ const getRandomAnimation = (animations) => {
 
 const AnimatedAssistant = () => {
   const [animationKey, setAnimationKey] = useState('waving');
-  const [userInput, setUserInput] = useState("Hi, I'm EDA!");
+  const [userInput] = useState("Hi, I'm EDA!");
   const [isStopped, setIsStopped] = useState(false);
 
   const defaultOptions = {
@@ -72,7 +73,7 @@ const AnimatedAssistant = () => {
     }
   }, [animationKey, isStopped]);
 
-  const handleAnimationChange = (key) => {
+  const handleAnimationChange = (key: string) => {
     setAnimationKey(key);
     setIsStopped(false);
   };
@@ -85,7 +86,6 @@ const AnimatedAssistant = () => {
           height={300} 
           width={280} 
           isStopped={isStopped} 
-          className="lottie-animation" 
         />
       </div>
       <div style={{ padding: '10px' }}>

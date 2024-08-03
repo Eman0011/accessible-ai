@@ -1,33 +1,30 @@
-import { useEffect, useState } from "react";
-import type { Schema } from "../amplify/data/resource";
-import { generateClient } from "aws-amplify/data";
-import { Authenticator } from '@aws-amplify/ui-react'
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { SideNavigation, AppLayout, TopNavigation, Button, SpaceBetween } from '@cloudscape-design/components';
+import { Authenticator } from '@aws-amplify/ui-react';
+import { AppLayout, SideNavigation, SideNavigationProps, SpaceBetween, TopNavigation } from '@cloudscape-design/components';
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
-import Footer from "./components/Footer"
-import brainLogo from './assets/images/cts-brain-logo.png'
+import brainLogo from './assets/images/cts-brain-logo.png';
+import Footer from "./components/Footer";
 
-import "./assets/plugins/bootstrap/css/bootstrap.min.css"
-import "./assets/plugins/font-awesome/css/font-awesome.css"
-import "./assets/css/styles.css"
-import "./assets/css/default.css"
+import "./assets/css/default.css";
+import "./assets/css/styles.css";
+import "./assets/plugins/bootstrap/css/bootstrap.min.css";
+import "./assets/plugins/font-awesome/css/font-awesome.css";
 
-import 'primereact/resources/themes/saga-blue/theme.css';  // Choose a theme
-import 'primereact/resources/primereact.min.css';
 import 'primeicons/primeicons.css';
+import 'primereact/resources/primereact.min.css';
+import 'primereact/resources/themes/saga-blue/theme.css'; // Choose a theme
 
-import LandingPage from './components/pages/LandingPage';
 import AnimatedAssistant from './components/common/eda/AnimatedAssistant';
 import AccessibleAI from './components/pages/AccessibleAI/AccessibleAI';
+import LandingPage from './components/pages/LandingPage';
 
-import '@aws-amplify/ui-react/styles.css'
+import '@aws-amplify/ui-react/styles.css';
 
-const client = generateClient<Schema>();
+// const client = generateClient<Schema>();
 
 function App() {
-  const navigationItems = [
-    { type: 'link', text: 'Accessible AI', href: '/accessible-ai', element: Link }
+  const navigationItems: ReadonlyArray<SideNavigationProps.Item> = [
+    { type: 'link', text: 'Accessible AI', href: '/accessible-ai'}
   ];
 
   const topNavigation = (
@@ -45,13 +42,13 @@ function App() {
           type: 'button',
           text: 'Contact Us',
           onClick: () => console.log('Contact Us clicked'),
-          iconName: 'mail'
+          iconName: 'contact'
         },
         {
           type: 'button',
           text: 'Help',
           onClick: () => console.log('Help clicked'),
-          iconName: 'information'
+          iconName: 'status-info'
         }
       ]}
       i18nStrings={{

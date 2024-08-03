@@ -81,7 +81,7 @@ const FileUploader: React.FC = () => {
         header: true,
         skipEmptyLines: true,
         complete: (results: any) => updateTable(results.data, selectedColumn),
-        error: (error) => {
+        error: (error: any) => {
           console.error('Error parsing file:', error);
         },
       });
@@ -153,11 +153,10 @@ const FileUploader: React.FC = () => {
             <SpaceBetween size='s'>
                 <FormField label="Choose Target Column">
                     <Select 
-                    placeholder="Select target column"
-                    onChange={handleColumnSelect}
-                    selectedOption={{ label: selectedColumn ?? 'Select a column', value: selectedColumn }}
-                    options={columns.map(col => ({ label: col.header as string, value: col.id }))}
-                    dropdownStyle={{ position: 'absolute', zIndex: 1 }}
+                      placeholder="Select target column"
+                      onChange={handleColumnSelect}
+                      selectedOption={{ label: selectedColumn || 'Select a column', value: selectedColumn || '' }}
+                      options={columns.map(col => ({ label: col.header as string, value: col.id }))}
                     />
                 </FormField>
                 <div>

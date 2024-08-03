@@ -1,11 +1,25 @@
 // src/contexts/ThemeContext.js
-import React, { createContext, useContext, useState } from 'react';
+import { ReactNode, createContext, useContext, useState } from 'react';
 
-const ThemeContext = createContext('light');
+interface ThemeProviderProps {
+  children: ReactNode;
+}
+interface ThemeContextType {
+  theme: string;
+  toggleTheme: () => void;
+}
 
-export const useTheme = () => useContext(ThemeContext);
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const ThemeProvider = ({ children }) => {
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   const [theme, setTheme] = useState('light');
 
   const toggleTheme = () => {

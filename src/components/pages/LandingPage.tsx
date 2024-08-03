@@ -1,6 +1,4 @@
-import React from 'react';
-import ctsLogo from '../../assets/images/cts-logo1.png'
-import AnimatedAssistant from '../common/eda/AnimatedAssistant';
+import ctsLogo from '../../assets/images/cts-logo1.png';
 
 function LandingPage() {
     return (
