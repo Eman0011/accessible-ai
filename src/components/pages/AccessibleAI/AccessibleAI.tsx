@@ -1,5 +1,3 @@
-import { Button } from '@aws-amplify/ui-react';
-import { getUrl } from 'aws-amplify/storage';
 import FileUploader from './FileUploader';
 
 // // Establish WebSocket connection

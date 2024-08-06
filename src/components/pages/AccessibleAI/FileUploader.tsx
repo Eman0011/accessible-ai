@@ -1,21 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FileUpload } from 'primereact/fileupload';
-import { Card } from 'primereact/card';
-import { Tooltip } from 'primereact/tooltip';
-import { uploadData } from "aws-amplify/storage";
 import { StorageManager } from '@aws-amplify/ui-react-storage';
+import { uploadData } from "aws-amplify/storage";
+import { Card } from 'primereact/card';
+import React, { useEffect, useRef, useState } from 'react';
 
 import Papa from 'papaparse';
 
 import {
-  Table,
-  TableProps,
-  Header,
-  SpaceBetween,
   Button,
-  Select,
   Form,
   FormField,
+  Header,
+  Select,
+  SpaceBetween,
+  Table,
+  TableProps,
 } from '@cloudscape-design/components';
 
 const FileUploader: React.FC = () => {
@@ -91,7 +89,7 @@ const FileUploader: React.FC = () => {
   //   }
   // };
 
-  const processFile = async ({ file }) => {
+  const processFile = async ({ file }: any) => {
     console.log("Process File!");
     setFile(file);
       Papa.parse(file, {
@@ -121,19 +119,19 @@ const FileUploader: React.FC = () => {
     updateTable(parsedData, selectedValue);
   };
   
-  const headerTemplate = (options: any) => {
-    const { className, chooseButton } = options;
-    return (
-        <div className={className} style={{ backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
-            {chooseButton}
-            {!file  && (
-                <div>
-                    Upload a File
-                </div>
-            )}
-        </div>
-    );
-  };
+  // const headerTemplate = (options: any) => {
+  //   const { className, chooseButton } = options;
+  //   return (
+  //       <div className={className} style={{ backgroundColor: 'transparent', display: 'flex', alignItems: 'center' }}>
+  //           {chooseButton}
+  //           {!file  && (
+  //               <div>
+  //                   Upload a File
+  //               </div>
+  //           )}
+  //       </div>
+  //   );
+  // };
 
   const handleSubmit = async () => {
     try {
@@ -176,11 +174,11 @@ const FileUploader: React.FC = () => {
     }
   }, [zoom]);
 
-  const chooseOptions = { 
-    icon: 'pi pi-fw pi-images',
-     iconOnly: false, 
-     className: 'custom-choose-btn p-button-rounded p-button-outlined' 
-    };
+  // const chooseOptions = { 
+  //   icon: 'pi pi-fw pi-images',
+  //    iconOnly: false, 
+  //    className: 'custom-choose-btn p-button-rounded p-button-outlined' 
+  //   };
 
   return (
     <SpaceBetween size='m'>
