@@ -1,3 +1,5 @@
+import { Button } from '@aws-amplify/ui-react';
+import { getUrl } from 'aws-amplify/storage';
 import FileUploader from './FileUploader';
 
 // // Establish WebSocket connection
@@ -29,12 +31,40 @@ import FileUploader from './FileUploader';
 //     // Update your UI component with the generation details here
 //     console.log('Generation Details:', details);
 // }
+// const downloadFile = async () => {
+//     console.log("Downloading file...");
+
+//     try {
+//         const linkToStorageFile = await getUrl({
+//             path: "example-training-data/Breast_Cancer_Wisconcin_ds.csv",
+//             options: {
+//                 validateObjectExistence: true,  // Validate if the object exists
+//                 expiresIn: 20,
+//                 useAccelerateEndpoint: true,
+//             },
+//         });
+//         console.log('result : ', linkToStorageFile);
+//         console.log('signed URL: ', linkToStorageFile.url);
+//         console.log('URL expires at: ', linkToStorageFile.expiresAt);
+//     } catch (error) {
+//         console.error('Error getting signed URL: ', error.message);
+//         console.error('Error details: ', error);
+//         if (error.code === 'NoSuchKey') {
+//             console.error('The specified file does not exist.');
+//         } else if (error.code === 'AccessDenied') {
+//             console.error('Access denied. Check your permissions.');
+//         } else {
+//             console.error('An unexpected error occurred:', error);
+//         }
+//     }
+// };
 
 function AccessibleAI() {
     return (
         <div>
             <h1>Accessible AI</h1>
             <FileUploader/>
+            {/* <Button onClick={downloadFile}>DOWNLOAD</Button> */}
         </div>
     )
 }

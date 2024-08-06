@@ -48,7 +48,7 @@ const AnimatedAssistant = () => {
   };
 
   useEffect(() => {
-    console.log("Animating: " + animationKey);
+    // console.log("Animating: " + animationKey);
     let animationDuration;
     if (animationKey === "standing") {
       animationDuration = 5000;

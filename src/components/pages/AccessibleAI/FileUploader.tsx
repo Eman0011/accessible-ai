@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileUpload } from 'primereact/fileupload';
 import { Card } from 'primereact/card';
-import Papa from 'papaparse';
 import { Tooltip } from 'primereact/tooltip';
+import { uploadData } from "aws-amplify/storage";
+import { StorageManager } from '@aws-amplify/ui-react-storage';
+
+import Papa from 'papaparse';
 
 import {
   Table,
@@ -37,18 +40,18 @@ const FileUploader: React.FC = () => {
     }
   };
 
-  const emptyTemplate = () => {
-    return (
-      <div onClick={() => fileUploadRef.current.getInput().click()} style={{ cursor: 'pointer' }}>
-        <div className="centered">
-          <i className="pi pi-image mt-3 p-5" style={{ fontSize: '10em', borderRadius: '50%', backgroundColor: 'var(--surface-b)', color: 'var(--surface-d)' }}></i>
-        </div>
-        <span style={{ fontSize: '1.2em', color: 'var(--text-color-secondary)' }} className="centered">
-          Drag and Drop File Here
-        </span>
-      </div>
-    );
-  };
+  // const emptyTemplate = () => {
+  //   return (
+  //     <div onClick={() => fileUploadRef.current.getInput().click()} style={{ cursor: 'pointer' }}>
+  //       <div className="centered">
+  //         <i className="pi pi-image mt-3 p-5" style={{ fontSize: '10em', borderRadius: '50%', backgroundColor: 'var(--surface-b)', color: 'var(--surface-d)' }}></i>
+  //       </div>
+  //       <span style={{ fontSize: '1.2em', color: 'var(--text-color-secondary)' }} className="centered">
+  //         Drag and Drop File Here
+  //       </span>
+  //     </div>
+  //   );
+  // };
 
   const updateTable = (data: any, selectedCol: string | null = null) => {
     const cols = Object.keys(data[0]).map((col, index) => ({
@@ -73,19 +76,35 @@ const FileUploader: React.FC = () => {
     setDisplayData(data.slice(0, 5)); // Display first 5 rows
   };
 
-  const onSelect = (e: any) => {
-    const file = e.files[0];
-    if (file) {
-      setFile(file);
+  // const onSelect = (e: any) => {
+  //   const file = e.files[0];
+  //   if (file) {
+  //     setFile(file);
+  //     Papa.parse(file, {
+  //       header: true,
+  //       skipEmptyLines: true,
+  //       complete: (results: any) => updateTable(results.data, selectedColumn),
+  //       error: (error: any) => {
+  //         console.error('Error parsing file:', error);
+  //       },
+  //     });
+  //   }
+  // };
+
+  const processFile = async ({ file }) => {
+    console.log("Process File!");
+    setFile(file);
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        complete: (results: any) => updateTable(results.data, selectedColumn),
-        error: (error: any) => {
+        complete: (results) => {
+          updateTable(results.data, selectedColumn);
+        },
+        error: (error) => {
           console.error('Error parsing file:', error);
         },
       });
-    }
+      return { file, key: `${file.name}` };
   };
 
   const handleZoomIn = () => {
@@ -116,6 +135,40 @@ const FileUploader: React.FC = () => {
     );
   };
 
+  const handleSubmit = async () => {
+    try {
+      await uploadFile();
+      // Here you would make an API call to submit the job with the S3 key and selectedColumn
+    } catch (error) {
+      console.error('Error uploading file to S3:', error);
+    }
+  };
+
+  const uploadFile = async () => {
+    try {
+      const uploadTask = await uploadData({
+        data: file,
+        path: `example-training-data/${file.name}`
+      });
+  
+      console.log(`File upload initiated: ${file.name}`);
+      
+      // Handling the result of the upload task
+      uploadTask.result
+        .then(result => {
+          console.log('File upload completed:', result);
+        })
+        .catch(error => {
+          console.error('File upload failed:', error);
+        });
+  
+      console.log('File upload response:', uploadTask);
+      console.log('File upload state:', uploadTask.state);
+    } catch (e) {
+      console.log("Upload error", e);
+    }
+  }
+
   useEffect(() => {
     if (tableRef.current) {
       const tableHeight = tableRef.current.scrollHeight;
@@ -131,7 +184,7 @@ const FileUploader: React.FC = () => {
 
   return (
     <SpaceBetween size='m'>
-      <Card title="File Upload">
+      {/* <Card title="File Upload">
         <Tooltip target=".custom-choose-btn" content="Choose" position="bottom" />
         <FileUpload 
           ref={fileUploadRef}
@@ -146,6 +199,15 @@ const FileUploader: React.FC = () => {
           onRemove={reset} // Trigger reset when the file is removed
           headerTemplate={headerTemplate}
           chooseOptions={chooseOptions}
+        />
+      </Card> */}
+      <Card>
+        <StorageManager
+          acceptedFileTypes={['.csv', '.tsv','text/csv', 'text/tab-separated-values']}
+          path="example-training-data/"
+          processFile={processFile}
+          maxFileCount={1}
+          isResumable
         />
       </Card>
       {parsedData.length > 0 && (
@@ -175,7 +237,7 @@ const FileUploader: React.FC = () => {
                     </div>
                 </div>
                 <FormField>
-                    <Button variant="primary" disabled={!selectedColumn}>Generate AI Model</Button>
+                    <Button variant="primary" onClick={handleSubmit} disabled={!selectedColumn}>Generate AI Model</Button>
                     <span style={{'paddingLeft': '10px'}}><Button onClick={reset}>Cancel</Button></span>
                 </FormField>
             </SpaceBetween>
