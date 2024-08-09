@@ -1,4 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { runTrainingJob } from "../functions/run-training/resource";
 
 /*== STEP 1 ===============================================================
 The section below creates a Todo database table with a "content" field. Try
@@ -6,12 +7,31 @@ adding a new "isDone" field as a boolean. The authorization rule below
 specifies that any user authenticated via an API key can "create", "read",
 "update", and "delete" any "Todo" records.
 =========================================================================*/
+
 const schema = a.schema({
-  Todo: a
+  TrainingJob: a
     .model({
-      content: a.string(),
+      hash: a.id(),
+      fileUrl: a.string(),
+      targetFeature: a.string(),
+      submittedBy: a.string(),
+      sumbittedAt: a.datetime(),
+      updatedAt: a.datetime(),
+      taskId: a.string(), // Add taskId to store ECS task ID
+      status: a.string(), // Add status to store the task status
+      baseS3Path: a.string(),
     })
     .authorization((allow) => [allow.owner()]),
+  runTrainingJob: a
+    .query()
+    .arguments({
+      fileUrl: a.string(),
+      targetFeature: a.string(),
+      submittedBy: a.string()
+    })
+    .returns(a.json())
+    .handler(a.handler.function(runTrainingJob))
+    .authorization((allow) => [allow.authenticated()]), 
 });
 
 export type Schema = ClientSchema<typeof schema>;

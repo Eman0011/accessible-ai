@@ -1,7 +1,8 @@
 import { StorageManager } from '@aws-amplify/ui-react-storage';
-import { uploadData } from "aws-amplify/storage";
+import { generateClient } from "aws-amplify/api";
 import { Card } from 'primereact/card';
 import React, { useEffect, useRef, useState } from 'react';
+import type { Schema } from "../../../../amplify/data/resource";
 
 import Papa from 'papaparse';
 
@@ -16,6 +17,10 @@ import {
   TableProps,
 } from '@cloudscape-design/components';
 
+
+const client = generateClient<Schema>();
+
+
 const FileUploader: React.FC = () => {
   const [file, setFile] = useState<any>();
   const [parsedData, setParsedData] = useState<any[]>([]);
@@ -25,6 +30,8 @@ const FileUploader: React.FC = () => {
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const fileUploadRef = useRef<any>(null);
+
+  const [response, setResponse] = useState({})
 
   const reset = () => {
     setFile(null);
@@ -55,16 +62,16 @@ const FileUploader: React.FC = () => {
     const cols = Object.keys(data[0]).map((col, index) => ({
       id: col,
       header: (
-        <div style={col === selectedCol ? { 
-            backgroundColor: '#037f0c', textAlign: 'center', color: 'white', padding: '10px'
-            } : { textAlign: 'center', padding: '10px' }}>
+        <div style={col === selectedCol ? {
+          backgroundColor: '#037f0c', textAlign: 'center', color: 'white', padding: '10px'
+        } : { textAlign: 'center', padding: '10px' }}>
           {col}
         </div>
       ),
       cell: (item: any) => (
-        <div style={col === selectedCol ? { 
-            backgroundColor: '#037f0c', color: 'white', textAlign: 'center', paddingLeft: index === 0 ? '10px' : '0' 
-            } : { textAlign: 'center', paddingLeft: index === 0 ? '10px' : '0' }}>
+        <div style={col === selectedCol ? {
+          backgroundColor: '#037f0c', color: 'white', textAlign: 'center', paddingLeft: index === 0 ? '10px' : '0'
+        } : { textAlign: 'center', paddingLeft: index === 0 ? '10px' : '0' }}>
           {item[col]}
         </div>
       ),
@@ -92,17 +99,17 @@ const FileUploader: React.FC = () => {
   const processFile = async ({ file }: any) => {
     console.log("Process File!");
     setFile(file);
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          updateTable(results.data, selectedColumn);
-        },
-        error: (error) => {
-          console.error('Error parsing file:', error);
-        },
-      });
-      return { file, key: `${file.name}` };
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        updateTable(results.data, selectedColumn);
+      },
+      error: (error) => {
+        console.error('Error parsing file:', error);
+      },
+    });
+    return { file, key: `${file.name}` };
   };
 
   const handleZoomIn = () => {
@@ -118,7 +125,7 @@ const FileUploader: React.FC = () => {
     setSelectedColumn(selectedValue);
     updateTable(parsedData, selectedValue);
   };
-  
+
   // const headerTemplate = (options: any) => {
   //   const { className, chooseButton } = options;
   //   return (
@@ -133,39 +140,23 @@ const FileUploader: React.FC = () => {
   //   );
   // };
 
-  const handleSubmit = async () => {
+  const submitTrainingJob = async () => {
     try {
-      await uploadFile();
-      // Here you would make an API call to submit the job with the S3 key and selectedColumn
+      const result = await client.queries.runTrainingJob({
+        submittedBy: "eman",
+        fileUrl: `example-training-data/${file.name}`,
+        targetFeature: selectedColumn,
+      });
+      console.log("RESULT:")
+      console.log(result)
+      if (result.data) {
+        console.log(result.data)
+        setResponse(result.data);
+      }
     } catch (error) {
-      console.error('Error uploading file to S3:', error);
+      console.error('Error submitting training job:', error);
     }
   };
-
-  const uploadFile = async () => {
-    try {
-      const uploadTask = await uploadData({
-        data: file,
-        path: `example-training-data/${file.name}`
-      });
-  
-      console.log(`File upload initiated: ${file.name}`);
-      
-      // Handling the result of the upload task
-      uploadTask.result
-        .then(result => {
-          console.log('File upload completed:', result);
-        })
-        .catch(error => {
-          console.error('File upload failed:', error);
-        });
-  
-      console.log('File upload response:', uploadTask);
-      console.log('File upload state:', uploadTask.state);
-    } catch (e) {
-      console.log("Upload error", e);
-    }
-  }
 
   useEffect(() => {
     if (tableRef.current) {
@@ -201,7 +192,7 @@ const FileUploader: React.FC = () => {
       </Card> */}
       <Card>
         <StorageManager
-          acceptedFileTypes={['.csv', '.tsv','text/csv', 'text/tab-separated-values']}
+          acceptedFileTypes={['.csv', '.tsv', 'text/csv', 'text/tab-separated-values']}
           path="example-training-data/"
           processFile={processFile}
           maxFileCount={1}
@@ -210,35 +201,35 @@ const FileUploader: React.FC = () => {
       </Card>
       {parsedData.length > 0 && (
         <Form>
-            <SpaceBetween size='s'>
-                <FormField label="Choose Target Column">
-                    <Select 
-                      placeholder="Select target column"
-                      onChange={handleColumnSelect}
-                      selectedOption={{ label: selectedColumn || 'Select a column', value: selectedColumn || '' }}
-                      options={columns.map(col => ({ label: col.header as string, value: col.id }))}
-                    />
-                </FormField>
-                <div>
-                    <Button onClick={handleZoomIn}>Zoom In</Button>
-                    <Button onClick={handleZoomOut}>Zoom Out</Button>
-                </div>
-                <div style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
-                    <div ref={tableRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', display: 'inline-block' }}>
-                    <Table
-                        columnDefinitions={columns}
-                        items={displayData}
-                        resizableColumns
-                        stickyHeader
-                        header={<Header>{file.name}</Header>}
-                    />
-                    </div>
-                </div>
-                <FormField>
-                    <Button variant="primary" onClick={handleSubmit} disabled={!selectedColumn}>Generate AI Model</Button>
-                    <span style={{'paddingLeft': '10px'}}><Button onClick={reset}>Cancel</Button></span>
-                </FormField>
-            </SpaceBetween>
+          <SpaceBetween size='s'>
+            <FormField label="Choose Target Column">
+              <Select
+                placeholder="Select target column"
+                onChange={handleColumnSelect}
+                selectedOption={{ label: selectedColumn || 'Select a column', value: selectedColumn || '' }}
+                options={columns.map(col => ({ label: col.header as string, value: col.id }))}
+              />
+            </FormField>
+            <div>
+              <Button onClick={handleZoomIn}>Zoom In</Button>
+              <Button onClick={handleZoomOut}>Zoom Out</Button>
+            </div>
+            <div style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
+              <div ref={tableRef} style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', display: 'inline-block' }}>
+                <Table
+                  columnDefinitions={columns}
+                  items={displayData}
+                  resizableColumns
+                  stickyHeader
+                  header={<Header>{file.name}</Header>}
+                />
+              </div>
+            </div>
+            <FormField>
+              <Button variant="primary" onClick={submitTrainingJob} disabled={!selectedColumn}>Generate AI Model</Button>
+              <span style={{ 'paddingLeft': '10px' }}><Button onClick={reset}>Cancel</Button></span>
+            </FormField>
+          </SpaceBetween>
         </Form>
       )}
     </SpaceBetween>

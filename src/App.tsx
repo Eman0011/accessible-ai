@@ -1,3 +1,4 @@
+import React from 'react'
 import { Authenticator } from '@aws-amplify/ui-react';
 import { AppLayout, SideNavigation, SideNavigationProps, SpaceBetween, TopNavigation } from '@cloudscape-design/components';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
@@ -20,11 +21,10 @@ import LandingPage from './components/pages/LandingPage';
 
 import '@aws-amplify/ui-react/styles.css';
 
-// const client = generateClient<Schema>();
 
 function App() {
   const navigationItems: ReadonlyArray<SideNavigationProps.Item> = [
-    { type: 'link', text: 'Accessible AI', href: '/accessible-ai'}
+    { type: 'link', text: 'Accessible AI', href: '/accessible-ai' }
   ];
 
   const topNavigation = (
@@ -62,7 +62,7 @@ function App() {
   );
 
   const sideNavigation = (
-    <SpaceBetween size = "m">
+    <SpaceBetween size="m">
       <SideNavigation
         header={{ text: 'Main Menu', href: '/' }}
         items={navigationItems}
@@ -73,24 +73,24 @@ function App() {
   );
 
   return (
-        
+
     <Authenticator>
       {({ signOut, user }) => (
         <Router>
-        {topNavigation}
-        <AppLayout
-          navigation={sideNavigation}
-          content={
-            <Routes>
-              <Route path="/" element={<LandingPage/>} />
-              <Route path="/accessible-ai" element={<AccessibleAI />} />
-            </Routes>
-          }
-        />
-        <h4>{user?.signInDetails?.loginId} Signed In</h4>
-        <button onClick={signOut}>Sign out</button>
-        <Footer />
-      </Router>
+          {topNavigation}
+          <AppLayout
+            navigation={sideNavigation}
+            content={
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/accessible-ai" element={<AccessibleAI />} />
+              </Routes>
+            }
+          />
+          <h4>{user?.signInDetails?.loginId} Signed In</h4>
+          <button onClick={signOut}>Sign out</button>
+          <Footer />
+        </Router>
       )}
     </Authenticator>
   );
