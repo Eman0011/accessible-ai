@@ -20,7 +20,8 @@ const ecsPolicy = new iam.PolicyStatement({
   actions: [
     "ecs:RunTask",
     "ecs:DescribeTasks",
-    "ecs:StopTask"
+    "ecs:StopTask",
+    "iam:PassRole"
   ],
   resources: ["*"],
 })
