@@ -142,6 +142,7 @@ const FileUploader: React.FC = () => {
 
   const submitTrainingJob = async () => {
     try {
+      console.log("Submitting Training Job...")
       const result = await client.queries.runTrainingJob({
         submittedBy: "eman",
         fileUrl: `example-training-data/${file.name}`,

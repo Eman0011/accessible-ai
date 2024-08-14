@@ -1,9 +1,10 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
-import { storage } from './storage/resource';
 import { runTrainingJob } from './functions/run-training/resource';
+import { storage } from './storage/resource';
 // import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as iam from "aws-cdk-lib/aws-iam";
 
 const backend = defineBackend({
   auth,
@@ -12,6 +13,18 @@ const backend = defineBackend({
   runTrainingJob
 });
 
+const runTrainingJobLabmda = backend.runTrainingJob.resources.lambda
+
+const ecsPolicy = new iam.PolicyStatement({
+  sid: "AllowRunECS",
+  actions: [
+    "ecs:RunTask",
+    "ecs:DescribeTasks",
+    "ecs:StopTask"
+  ],
+  resources: ["*"],
+})
+runTrainingJobLabmda.addToRolePolicy(ecsPolicy)
 
 
 // const s3Bucket = backend.storage.resources.bucket;
