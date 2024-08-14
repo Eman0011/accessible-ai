@@ -54,6 +54,6 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
     };
   } catch (error) {
     console.error(error);
-    throw new Error('Failed to start ECS task');
+    throw new Error(`Failed to start ECS task: ${error}`);
   }
 }
