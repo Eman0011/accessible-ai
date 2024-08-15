@@ -3,6 +3,7 @@ import { generateClient } from "aws-amplify/api";
 import { Card } from 'primereact/card';
 import React, { useEffect, useRef, useState } from 'react';
 import type { Schema } from "../../../../amplify/data/resource";
+import amplify_config from "../../../../amplify_outputs.json";
 
 import Papa from 'papaparse';
 
@@ -145,7 +146,7 @@ const FileUploader: React.FC = () => {
       console.log("Submitting Training Job...")
       const result = await client.queries.runTrainingJob({
         submittedBy: "eman",
-        fileUrl: `example-training-data/${file.name}`,
+        fileUrl: `s3://${amplify_config.storage.bucket_name}/example-training-data/${file.name}`,
         targetFeature: selectedColumn,
       });
       console.log("RESULT:")
