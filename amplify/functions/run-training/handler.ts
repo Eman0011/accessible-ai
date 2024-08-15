@@ -1,6 +1,7 @@
 import { ECS } from 'aws-sdk';
 import {
   ECS_CLUSTER,
+  ECS_SECURITY_GROUP_ID,
   ECS_TASK_DEFINITION,
   PUBLIC_VPC_SUBNET_1,
   PUBLIC_VPC_SUBNET_2,
@@ -23,6 +24,7 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
     networkConfiguration: {
       awsvpcConfiguration: {
         subnets: [PUBLIC_VPC_SUBNET_1, PUBLIC_VPC_SUBNET_2],
+        securityGroups: [ECS_SECURITY_GROUP_ID],
         assignPublicIp: 'ENABLED',
       },
     },
