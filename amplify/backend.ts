@@ -1,31 +1,41 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
+import { runModelInference } from './functions/run-inference/resource';
 import { runTrainingJob } from './functions/run-training/resource';
 import { storage } from './storage/resource';
 // import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from "aws-cdk-lib/aws-iam";
+import { BATCH_JOB_ROLE } from '../Config';
 
 const backend = defineBackend({
   auth,
   data,
   storage,
-  runTrainingJob
+  runTrainingJob,
+  runModelInference
 });
 
-const runTrainingJobLabmda = backend.runTrainingJob.resources.lambda
+const runTrainingJobLambda = backend.runTrainingJob.resources.lambda
 
-const ecsPolicy = new iam.PolicyStatement({
-  sid: "AllowRunECS",
+runTrainingJobLambda.addToRolePolicy(new iam.PolicyStatement({
+  sid: "AllowSubmitBatchJobs",
   actions: [
-    "ecs:RunTask",
-    "ecs:DescribeTasks",
-    "ecs:StopTask",
-    "iam:PassRole"
+    "batch:SubmitJob",
+    "batch:DescribeJobs",
+    "batch:TerminateJob",  // Optional if you want Lambda to terminate jobs
   ],
   resources: ["*"],
-})
-runTrainingJobLabmda.addToRolePolicy(ecsPolicy)
+}));
+
+runTrainingJobLambda.addToRolePolicy(new iam.PolicyStatement({
+  sid: "AllowPassRole",
+  actions: ["iam:PassRole"],
+  resources: [
+    BATCH_JOB_ROLE
+  ],
+  effect: iam.Effect.ALLOW,
+}));
 
 
 // const s3Bucket = backend.storage.resources.bucket;

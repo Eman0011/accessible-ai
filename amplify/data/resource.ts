@@ -1,5 +1,6 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { runTrainingJob } from "../functions/run-training/resource";
+import { runModelInference } from "../functions/run-inference/resource";
 
 /*== STEP 1 ===============================================================
 The section below creates a Todo database table with a "content" field. Try
@@ -31,7 +32,16 @@ const schema = a.schema({
     })
     .returns(a.json())
     .handler(a.handler.function(runTrainingJob))
-    .authorization((allow) => [allow.authenticated()]), 
+    .authorization((allow) => [allow.authenticated()]),
+  runModelInference: a
+    .query()
+    .arguments({
+      modelPath: a.string(),
+      input: a.json()
+    })
+    .returns(a.json())
+    .handler(a.handler.function(runModelInference))
+    .authorization((allow) => [allow.authenticated()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
