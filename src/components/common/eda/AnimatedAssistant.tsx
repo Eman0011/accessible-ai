@@ -1,6 +1,8 @@
-import { Button, SpaceBetween } from '@cloudscape-design/components';
+import React from 'react';
+import { SpaceBetween } from '@cloudscape-design/components';
 import { useEffect, useState } from 'react';
 import Lottie from 'react-lottie';
+import ChatBox from './ChatBox';
 
 import boredLottie from '../../../assets/animations/eda_bored.json';
 import fidgetingLottie from '../../../assets/animations/eda_fidgeting.json';
@@ -9,6 +11,8 @@ import standingLottie from '../../../assets/animations/eda_standing.json';
 import wavingLottie from '../../../assets/animations/eda_waving.json';
 import { Animation, transformAnimationData } from './constants';
 
+// // Suppress the componentWillUpdate warning
+// React.useLayoutEffect = React.useEffect;
 
 const animations: Record<string, Animation> = {
   standing: transformAnimationData(standingLottie),
@@ -93,15 +97,16 @@ const AnimatedAssistant = () => {
           onChange={({ detail }) => setUserInput(detail.value)}
           value={userInput}
         /> */}
-        <h3>{userInput}</h3>
-        <SpaceBetween size='xs'>
+
+        {/* <SpaceBetween size='xs'>
           <Button onClick={() => handleAnimationChange('standing')}>Standing</Button>
           <Button onClick={() => handleAnimationChange('fidgeting')}>Fidgeting</Button>
           <Button onClick={() => handleAnimationChange('bored')}>Bored</Button>
           <Button onClick={() => handleAnimationChange('waving')}>Waving</Button>
           <Button onClick={() => handleAnimationChange('jumping')}>Jumping</Button>
-        </SpaceBetween>
+        </SpaceBetween> */}
       </div>
+      <ChatBox />
     </SpaceBetween>
   );
 };

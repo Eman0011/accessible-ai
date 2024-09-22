@@ -1,0 +1,118 @@
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.light-theme {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+body.dark-theme {
+  background-color: #1a1a1a;
+  color: #ffffff; /* Ensure this is a light color */
+}
+
+/* Cloudscape Design System overrides for dark theme */
+body.dark-theme {
+  --color-background-home-header: #000000;
+  --color-background-layout-main: #1a1a1a;
+  --color-background-container-content: #2c2c2c;
+  --color-background-dropdown-item-hover: #3a3a3a;
+  --color-text-body-default: #e0e0e0;
+  --color-text-interactive-default: #7bc2d3;
+  --color-border-divider-default: #4a4a4a;
+  --color-background-button-primary-default: #0073bb;
+  --color-background-button-primary-hover: #0086d9;
+  --color-background-dropdown-item-selected: #0073bb;
+
+  /* TopNavigation specific styles */
+  --color-background-top-nav: #000000;
+  --color-text-top-navigation: #ffffff;
+  --color-background-button-normal-default: #333333;
+  --color-background-button-normal-hover: #4a4a4a;
+  --color-text-button-normal-default: #ffffff;
+  --color-border-button-normal-default: #4a4a4a;
+}
+
+/* TopNavigation styles */
+body.dark-theme .awsui-top-navigation {
+  background-color: var(--color-background-top-nav);
+  color: var(--color-text-top-navigation);
+}
+
+body.dark-theme .awsui-top-navigation-utilities {
+  background-color: var(--color-background-top-nav);
+}
+
+body.dark-theme .awsui-button-dropdown.awsui-top-navigation-utilities-button {
+  background-color: var(--color-background-button-normal-default);
+  color: var(--color-text-button-normal-default);
+  border-color: var(--color-border-button-normal-default);
+}
+
+body.dark-theme .awsui-button-dropdown.awsui-top-navigation-utilities-button:hover {
+  background-color: var(--color-background-button-normal-hover);
+}
+
+/* Additional styles for top navigation in dark mode */
+body.dark-theme .awsui-top-navigation {
+  border-bottom: 1px solid #333333;
+}
+
+body.dark-theme .awsui-top-navigation-utilities-button {
+  color: #ffffff;
+}
+
+body.dark-theme .awsui-top-navigation-utilities-button:hover {
+  background-color: #333333;
+}
+
+/* Ensure the identity section of TopNavigation is also styled */
+body.dark-theme .awsui-top-navigation-identity {
+  background-color: var(--color-background-top-nav);
+  color: var(--color-text-top-navigation);
+}
+
+/* Style the menu dropdown in dark mode */
+body.dark-theme .awsui-menu-dropdown {
+  background-color: var(--color-background-container-content);
+  color: var(--color-text-body-default);
+}
+
+body.dark-theme .awsui-menu-dropdown-item:hover {
+  background-color: var(--color-background-dropdown-item-hover);
+}
+
+/* Add more theme-specific styles as needed */
+
+/* Add these styles at the end of the file */
+
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-container > div {
+  width: 100%;
+}
+
+#header {
+  width: 100%;
+}
+
+.awsui-app-layout {
+  flex-grow: 1;
+  width: 100%;
+}
+
+.awsui-app-layout__content {
+  max-width: none !important;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}

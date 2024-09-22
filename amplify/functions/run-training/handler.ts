@@ -8,7 +8,7 @@ import type { Schema } from '../../data/resource';
 
 export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event) => {
   // arguments typed from `.arguments()`
-  const { fileUrl, targetFeature, submittedBy } = event.arguments;
+  const { fileUrl, targetFeature, submittedBy, modelId } = event.arguments;
 
   console.log("Submitting BATCH JOB:")
   const batch = new Batch();
@@ -23,6 +23,7 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
         { name: 'FILE', value: fileUrl || '' },
         { name: 'TARGET', value: targetFeature || '' },
         { name: 'USER', value: submittedBy || '' },
+        { name: 'MODEL_ID', value: modelId || '' },
       ],
     },
   };

@@ -1,0 +1,61 @@
+/* Dark theme version of default.css */
+body {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+#navbar {
+    margin-bottom: 20px;
+    background-color: #2c2c2c;
+}
+
+header nav ul li a {
+    font-size: 22px;
+    color: #e0e0e0;
+}
+
+header nav .navbar-brand {
+    font-size: 30px;
+    color: #ffffff;
+}
+
+.sidebar-wrapper {
+    width: 300px;
+    background-color: #2c2c2c;
+}
+
+.my-nav-link {
+    font-family: Consolas;
+    color: #e0e0e0;
+}
+
+.my-nav-link:hover {
+    color: #ffffff;
+    background-color: #3a3a3a;
+}
+
+.main-wrapper .rotation-title {
+    color: #b0b0b0;
+}
+
+.dropdown {
+    color: #7bc2d3;
+}
+
+.dropdown-content {
+    background-color: #2c2c2c;
+}
+
+.dropdown-content a {
+    color: #e0e0e0;
+}
+
+.dropdown-content a:hover {
+    background-color: #3a3a3a;
+}
+
+/* CUSTOM */
+
+.centered {
+    background-color: #1a1a1a;
+}

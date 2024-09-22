@@ -1,6 +1,6 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-import { runTrainingJob } from "../functions/run-training/resource";
 import { runModelInference } from "../functions/run-inference/resource";
+import { runTrainingJob } from "../functions/run-training/resource";
 
 /*== STEP 1 ===============================================================
 The section below creates a Todo database table with a "content" field. Try
@@ -10,29 +10,81 @@ specifies that any user authenticated via an API key can "create", "read",
 =========================================================================*/
 
 const schema = a.schema({
-  TrainingJob: a
+  Project: a
     .model({
-      hash: a.id(),
-      fileUrl: a.string(),
-      targetFeature: a.string(),
-      submittedBy: a.string(),
-      sumbittedAt: a.datetime(),
+      id: a.id(),
+      name: a.string().required(),
+      owner: a.string().required(),
+      description: a.string(),
+      createdAt: a.datetime(),
       updatedAt: a.datetime(),
-      taskId: a.string(), // Add taskId to store ECS task ID
-      status: a.string(), // Add status to store the task status
-      baseS3Path: a.string(),
+      models: a.hasMany('Model', 'projectId'),
+      datasets: a.hasMany('Dataset', 'projectId'),
     })
-    .authorization((allow) => [allow.owner()]),
+    .secondaryIndexes((index) => [
+      index("owner").sortKeys(['createdAt'])
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  Dataset: a
+    .model({
+      id: a.id(),
+      projectId: a.string().required(),
+      name: a.string().required(),
+      version: a.integer().required(),
+      description: a.string().required(),
+      owner: a.string().required(),
+      s3Key: a.string().required(),
+      uploadDate: a.datetime().required(),
+      size: a.integer().required(),
+      rowCount: a.integer().required(),
+      project: a.belongsTo('Project', 'projectId'),
+      models: a.hasMany('Model', 'datasetId'),
+    })
+    .secondaryIndexes((index) => [
+      index("name").sortKeys(["version"]),
+      index("owner").sortKeys(["version"])
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  Model: a
+    .model({
+      id: a.id(),
+      name: a.string().required(),
+      description: a.string().required(),
+      owner: a.string().required(),
+      version: a.integer().required(),
+      status: a.string().required(),
+      targetFeature: a.string(),
+      fileUrl: a.string().required(),
+      s3Key: a.string(),
+      trainingJobId: a.string(),
+      performanceMetrics: a.json(),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+      projectId: a.id().required(),
+      project: a.belongsTo('Project', 'projectId'),
+      datasetId: a.id().required(),
+      dataset: a.belongsTo('Dataset', 'datasetId'),
+    })
+    .secondaryIndexes((index) => [
+      index("name").sortKeys(["version"]),
+      index("owner").sortKeys(['version'])
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
   runTrainingJob: a
     .query()
     .arguments({
       fileUrl: a.string(),
       targetFeature: a.string(),
-      submittedBy: a.string()
+      submittedBy: a.string(),
+      modelId: a.string(),
     })
     .returns(a.json())
     .handler(a.handler.function(runTrainingJob))
     .authorization((allow) => [allow.authenticated()]),
+
   runModelInference: a
     .query()
     .arguments({
