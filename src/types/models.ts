@@ -39,6 +39,7 @@ export interface Model {
   s3Key?: string;
   trainingJobId?: string;
   performanceMetrics?: any;
+  s3OutputPath?: string; // Add this line
 }
 
 export interface ModelVersion {

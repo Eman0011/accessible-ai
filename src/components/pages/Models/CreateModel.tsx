@@ -188,19 +188,23 @@ const CreateModel: React.FC = () => {
       });
 
       if (newModel.data) {
+        const modelId = newModel.data.id;
+
         try {
+          const userName = user?.username || 'unknown_user'
           // Submit the training job
           const result = await client.queries.runTrainingJob({
-            submittedBy: user?.username || 'unknown_user',
+            submittedBy: userName,
             fileUrl: `s3://${amplify_config.storage.bucket_name}/${selectedDataset.s3Key}`,
             targetFeature: selectedColumn,
-            modelId: newModel.data.id,
+            modelId: modelId,
+            projectId: currentProject.id,
           });
 
           if (result.data) {
             const trainingJobResult = JSON.parse(result.data as string) as TrainingJobResult;
             await client.models.Model.update({
-              id: newModel.data.id,
+              id: modelId,
               trainingJobId: trainingJobResult.jobId,
               status: 'SUBMITTED',
             });
@@ -208,12 +212,12 @@ const CreateModel: React.FC = () => {
         } catch (trainingError) {
           console.error('Error submitting training job:', trainingError);
           await client.models.Model.update({
-            id: newModel.data.id,
+            id: modelId,
             status: "TRAINING_FAILED",
           });
         }
 
-        navigate(`/models/${newModel.data.id}`);
+        navigate(`/models/${modelId}`);
       }
     } catch (error) {
       console.error('Error creating model:', error);

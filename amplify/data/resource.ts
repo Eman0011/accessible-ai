@@ -66,6 +66,7 @@ const schema = a.schema({
       project: a.belongsTo('Project', 'projectId'),
       datasetId: a.id().required(),
       dataset: a.belongsTo('Dataset', 'datasetId'),
+      s3OutputPath: a.string(),
     })
     .secondaryIndexes((index) => [
       index("name").sortKeys(["version"]),
@@ -80,6 +81,7 @@ const schema = a.schema({
       targetFeature: a.string(),
       submittedBy: a.string(),
       modelId: a.string(),
+      projectId: a.string(),
     })
     .returns(a.json())
     .handler(a.handler.function(runTrainingJob))

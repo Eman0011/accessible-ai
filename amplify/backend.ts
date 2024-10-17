@@ -6,7 +6,7 @@ import { runTrainingJob } from './functions/run-training/resource';
 import { storage } from './storage/resource';
 // import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from "aws-cdk-lib/aws-iam";
-import { BATCH_JOB_ROLE } from '../Config';
+import { BATCH_JOB_ROLE, TRAINING_OUTPUT_BUCKET } from '../Config';
 
 const backend = defineBackend({
   auth,
@@ -37,17 +37,30 @@ runTrainingJobLambda.addToRolePolicy(new iam.PolicyStatement({
   effect: iam.Effect.ALLOW,
 }));
 
+// Add S3 read permissions to the authenticated user role
+const authenticatedRole = backend.auth.resources.authenticatedUserIamRole;
 
-// const s3Bucket = backend.storage.resources.bucket;
-// const cfnBucket = s3Bucket.node.defaultChild as s3.CfnBucket;
+authenticatedRole.addToPrincipalPolicy(
+  new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: [
+      's3:GetObject',
+      's3:ListBucket',
+      's3:GetBucketLocation',
+      's3:ListBucketMultipartUploads'
+    ],
+    resources: [
+      `arn:aws:s3:::${TRAINING_OUTPUT_BUCKET}`,
+      `arn:aws:s3:::${TRAINING_OUTPUT_BUCKET}/*`
+    ]
+  })
+);
 
-
-// cfnBucket.corsConfiguration = {
-//   corsRules: [{
-//     allowedHeaders: ["*"],
-//     allowedMethods: ["GET", "HEAD", "PUT", "POST", "DELETE"],
-//     allowedOrigins: ["*"], // You can restrict this to your domains if needed
-//     exposedHeaders: ["ETag", "x-amz-meta-custom-header"],
-//     maxAge: 3000
-//   }],
-// };
+// Add a separate policy for ListAllMyBuckets
+authenticatedRole.addToPrincipalPolicy(
+  new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: ['s3:ListAllMyBuckets'],
+    resources: ['*']
+  })
+);

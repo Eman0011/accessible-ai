@@ -74,6 +74,7 @@ const ModelsHome: React.FC = () => {
           ...model,
           // Remove this line if status is not in the schema
           // status: model.status || 'DRAFT'
+          s3OutputPath: model.s3OutputPath // Add this line
         })) as unknown as Model[]);
       }
     } catch (error) {
