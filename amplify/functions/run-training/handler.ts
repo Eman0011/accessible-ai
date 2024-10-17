@@ -25,7 +25,7 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
         { name: 'USER', value: submittedBy || '' },
         { name: 'MODEL_ID', value: modelId || '' },
         { name: 'PROJECT_ID', value: projectId || '' },
-        { name: 'STAGE', value: 'dev' }
+        { name: 'STAGE', value: 'prod' }
       ],
     },
   };
