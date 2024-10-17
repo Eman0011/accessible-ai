@@ -304,15 +304,15 @@ const ModelDetails: React.FC = () => {
                   <Header variant="h3">Key Metrics</Header>
                   <ColumnLayout columns={2} variant="text-grid">
                     <div>
-                      <Header variant="h4">Accuracy</Header>
+                      <Header variant="h3" className="sub-header">Accuracy</Header>
                       <p>{formatNumber(metrics.accuracy)}</p>
                     </div>
                     <div>
-                      <Header variant="h4">ROC AUC</Header>
+                      <Header variant="h3" className="sub-header">ROC AUC</Header>
                       <p>{metrics.roc_auc !== null ? formatNumber(metrics.roc_auc) : '-'}</p>
                     </div>
                     <div>
-                      <Header variant="h4">CV Score</Header>
+                      <Header variant="h3" className="sub-header">CV Score</Header>
                       <p>{formatNumber(metrics.cv_score)}</p>
                     </div>
                   </ColumnLayout>
@@ -363,15 +363,15 @@ const ModelDetails: React.FC = () => {
               <Container key={index} header={<Header variant="h3">{step.step_name}</Header>}>
                 <ColumnLayout columns={2} variant="text-grid">
                   <div>
-                    <Header variant="h4">Class</Header>
+                    <Header variant="h3" className="sub-header">Class</Header>
                     <p>{step.class_name}</p>
                   </div>
                   <div>
-                    <Header variant="h4">Module</Header>
+                    <Header variant="h3" className="sub-header">Module</Header>
                     <p>{step.module}</p>
                   </div>
                 </ColumnLayout>
-                <Header variant="h4">Parameters</Header>
+                <Header variant="h3" className="sub-header">Parameters</Header>
                 <pre style={{ maxHeight: '200px', overflowY: 'auto' }}>{JSON.stringify(step.params, null, 2)}</pre>
               </Container>
             ))}
