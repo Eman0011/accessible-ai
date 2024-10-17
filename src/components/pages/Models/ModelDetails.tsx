@@ -163,7 +163,7 @@ const ModelDetails: React.FC = () => {
   }
 
   const formatNumber = (value: number | undefined) => {
-    return value !== undefined ? value.toFixed(4) : 'N/A';
+    return value !== undefined ? value.toFixed(4) : '-';
   };
 
   const aucChartOptions: ChartOptions<'line'> = {
@@ -309,7 +309,7 @@ const ModelDetails: React.FC = () => {
                     </div>
                     <div>
                       <Header variant="h4">ROC AUC</Header>
-                      <p>{metrics.roc_auc !== null ? formatNumber(metrics.roc_auc) : 'N/A'}</p>
+                      <p>{metrics.roc_auc !== null ? formatNumber(metrics.roc_auc) : '-'}</p>
                     </div>
                     <div>
                       <Header variant="h4">CV Score</Header>
@@ -325,10 +325,10 @@ const ModelDetails: React.FC = () => {
                       { id: 'value', header: 'Value', cell: (item) => item.value },
                     ]}
                     items={[
-                      { label: 'True Negatives', value: metrics.confusion_matrix?.true_negatives ?? 'N/A' },
-                      { label: 'False Positives', value: metrics.confusion_matrix?.false_positives ?? 'N/A' },
-                      { label: 'False Negatives', value: metrics.confusion_matrix?.false_negatives ?? 'N/A' },
-                      { label: 'True Positives', value: metrics.confusion_matrix?.true_positives ?? 'N/A' },
+                      { label: 'True Negatives', value: metrics.confusion_matrix?.true_negatives ?? '-' },
+                      { label: 'False Positives', value: metrics.confusion_matrix?.false_positives ?? '-' },
+                      { label: 'False Negatives', value: metrics.confusion_matrix?.false_negatives ?? '-' },
+                      { label: 'True Positives', value: metrics.confusion_matrix?.true_positives ?? '-' },
                     ]}
                   />
                 </div>
