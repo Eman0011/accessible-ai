@@ -59,6 +59,9 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         console.log('Received message from worker:', event.data);
         if (event.data.type === 'rowCount') {
           setActualRowCount(event.data.count);
+        } else if (event.data.type === 'progress') {
+          // Update progress here if you want to show it in the UI
+          console.log(`Row counting progress: ${event.data.count} rows`);
         }
       };
 
