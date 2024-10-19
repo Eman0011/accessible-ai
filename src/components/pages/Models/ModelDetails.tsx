@@ -140,9 +140,10 @@ const ModelDetails: React.FC = () => {
           // Set AUC data
           if (metricsData.auc_data) {
             setAucData(metricsData.auc_data);
-          } else {
-            setAucData(generateSampleAUCData(metricsData.roc_auc));
           }
+          // } else {
+            // setAucData(generateSampleAUCData(metricsData.roc_auc));
+          // }
         }
       } catch (error) {
         console.error('Error fetching model details:', error);
