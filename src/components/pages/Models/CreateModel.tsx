@@ -12,6 +12,7 @@ import DatasetVisualizer from '../../common/DatasetVisualizer';
 import amplify_config from "../../../../amplify_outputs.json";
 
 
+
 import {
   Button,
   Form,
@@ -116,6 +117,12 @@ const CreateModel: React.FC = () => {
 
       const { body } = await downloadData({
         path: dataset.s3Key,
+        options: {
+          bytesRange: {
+            start: 0,
+            end: 102400 // 100 KB
+          },
+        }
       }).result;
 
       const fileContent = await body.text();
