@@ -6,31 +6,34 @@ interface DatasetVisualizerProps {
   dataset: Dataset;
   previewData: any[];
   columns: TableProps.ColumnDefinition<any>[];
-  limit?: number;
+  version?: {
+    uploadDate: string;
+    size: number;
+    rowCount: number;
+    version: number;
+  };
   highlightedColumn?: string | null;
 }
 
 const DatasetVisualizer: React.FC<DatasetVisualizerProps> = ({ 
   dataset, 
   previewData, 
-  columns, 
-  limit,
+  columns,
+  version,
   highlightedColumn
 }) => {
-  // Function to apply highlighting style
   const getColumnStyle = (columnId: string) => {
     const baseStyle = { textAlign: 'center' as const };
     if (columnId === highlightedColumn) {
       return { 
         ...baseStyle, 
-        backgroundColor: '#008000',  // Soft blue background
-        color: 'white'  // Green text
+        backgroundColor: '#008000',  // Green background
+        color: 'white'  // White text
       };
     }
     return baseStyle;
   };
 
-  // Modify columns to include highlighting and centering
   const highlightedColumns = columns.map(col => ({
     ...col,
     cell: (item: any) => (
@@ -47,18 +50,23 @@ const DatasetVisualizer: React.FC<DatasetVisualizerProps> = ({
 
   return (
     <SpaceBetween size="m">
-      <Header variant="h2">{dataset.name} (Version {dataset.version})</Header>
+      <Header variant="h2">
+        {dataset.name} 
+        {version && ` (v${version.version})`}
+      </Header>
       <Table
         columnDefinitions={highlightedColumns}
-        items={limit ? previewData.slice(0, limit) : previewData}
+        items={previewData}
         header={<h3>Data Preview</h3>}
         wrapLines
       />
-      <SpaceBetween size="s" direction="horizontal">
-        <div>Rows: {dataset.rowCount}</div>
-        <div>Size: {(dataset.size / 1024 / 1024).toFixed(2)} MB</div>
-        <div>Upload Date: {new Date(dataset.uploadDate).toLocaleString()}</div>
-      </SpaceBetween>
+      {version && (
+        <SpaceBetween size="s" direction="horizontal">
+          <div>Rows: {version.rowCount.toLocaleString()}</div>
+          <div>Size: {(version.size / (1024 * 1024)).toFixed(2)} MB</div>
+          <div>Upload Date: {new Date(version.uploadDate).toLocaleString()}</div>
+        </SpaceBetween>
+      )}
     </SpaceBetween>
   );
 };

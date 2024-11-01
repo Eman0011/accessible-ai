@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Form, FormField, Input, Button, SpaceBetween } from '@cloudscape-design/components';
+import { useNavigate } from 'react-router-dom';
 
 interface CreateProjectModalProps {
   visible: boolean;
@@ -10,6 +11,7 @@ interface CreateProjectModalProps {
 const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ visible, onClose, onCreateProject }) => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async () => {
     const newProject = await onCreateProject(projectName, description);
@@ -17,6 +19,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ visible, onClos
       setProjectName('');
       setDescription('');
       onClose();
+      navigate('/');
     }
   };
 

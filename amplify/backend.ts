@@ -51,7 +51,7 @@ authenticatedRole.addToPrincipalPolicy(
     ],
     resources: [
       `arn:aws:s3:::${TRAINING_OUTPUT_BUCKET}`,
-      `arn:aws:s3:::${TRAINING_OUTPUT_BUCKET}/*`
+      `arn:aws:s3:::${TRAINING_OUTPUT_BUCKET}/*`,
     ]
   })
 );

@@ -2,16 +2,15 @@ import { generateClient } from "aws-amplify/api";
 import { downloadData } from 'aws-amplify/storage';
 import Papa from 'papaparse';
 import React, { useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { useUser } from '../../../contexts/UserContext';
-import { Dataset, Model, TrainingJobResult } from '../../../types/models';
+import { Dataset, DatasetVersion, Model, TrainingJobResult } from '../../../types/models';
+import { generateStoragePath } from '../../../utils/storageUtils';
 import DatasetUploader from '../../common/DatasetUploader';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
-import amplify_config from "../../../../amplify_outputs.json";
-
-
+import amplify_config from '../../../amplify_outputs.json';
 
 import {
   Button,
@@ -29,10 +28,14 @@ const client = generateClient<Schema>();
 
 const CreateModel: React.FC = () => {
   const { currentProject } = useContext(ProjectContext);
-  const { user } = useUser();
+  const { user, isLoading: isUserLoading } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [modelName, setModelName] = useState('');
+  const [existingModels, setExistingModels] = useState<Model[]>([]); // Store existing models
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null); // Store selected model ID
+  const [selectedVersion, setSelectedVersion] = useState(1)
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [uniqueDatasetNames, setUniqueDatasetNames] = useState<string[]>([]);
   const [selectedDatasetName, setSelectedDatasetName] = useState<string | null>(null);
@@ -40,15 +43,40 @@ const CreateModel: React.FC = () => {
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [isCreatingNewDataset, setIsCreatingNewDataset] = useState(false);
+  const [isModelCreationSubmitted, setIsModelCreationSubmitted] = useState(false);
   const [columns, setColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [isCreatingNewModel, setIsCreatingNewModel] = useState(false); // State for new model creation modal
+  const [newModelName, setNewModelName] = useState(''); // State for new model name
+  const [newModelDescription, setNewModelDescription] = useState(''); // State for new model description
+  const [datasetVersions, setDatasetVersions] = useState<DatasetVersion[]>([]);
+  const [selectedDatasetVersions, setSelectedDatasetVersions] = useState<DatasetVersion[]>([]);
 
   useEffect(() => {
+    console.log('Initial useEffect - currentProject:', currentProject?.id);
     if (currentProject) {
+      console.log('Fetching initial data for project:', currentProject.id);
       fetchDatasets();
+      fetchExistingModels();
     }
   }, [currentProject]);
+
+  useEffect(() => {
+    console.log('Models useEffect - existingModels:', existingModels);
+    if (existingModels.length > 0) {
+      const passedModelId = (location.state as { selectedModelId?: string })?.selectedModelId;
+      console.log('Passed model ID:', passedModelId);
+      if (passedModelId) {
+        setSelectedModelId(passedModelId);
+        const selectedModel = existingModels.find(m => m.id === passedModelId);
+        console.log('Found selected model:', selectedModel);
+        if (selectedModel) {
+          setModelName(selectedModel.name);
+        }
+      }
+    }
+  }, [existingModels, location.state]);
 
   const fetchDatasets = async () => {
     try {
@@ -66,43 +94,134 @@ const CreateModel: React.FC = () => {
     }
   };
 
+  const fetchExistingModels = async () => {
+    try {
+      console.log('Fetching existing models for project:', currentProject?.id);
+      const { data: models } = await client.models.Model.list({
+        filter: { projectId: { eq: currentProject?.id } }
+      });
+      
+      console.log('Raw models data:', models);
+      
+      if (models) {
+        // Map the raw data to Model type with explicit type checking
+        const typedModels = models.map(model => {
+          const typedModel: Model = {
+            id: model.id || '',
+            name: model.name || '',
+            description: model.description || '',
+            owner: model.owner || '',
+            projectId: model.projectId || '',
+            createdAt: model.createdAt || null,
+            updatedAt: model.updatedAt || null
+          };
+          return typedModel;
+        });
+        
+        console.log('Processed models:', typedModels);
+        setExistingModels(typedModels);
+      } else {
+        console.log('No models returned from API');
+        setExistingModels([]);
+      }
+    } catch (error) {
+      console.error('Error fetching existing models:', error);
+      setExistingModels([]);
+    }
+  };
+
+  const fetchDatasetVersions = async (datasetId: string) => {
+    try {
+      const { data: versions } = await client.models.DatasetVersion.list({
+        filter: { datasetId: { eq: datasetId } }
+      });
+      if (versions) {
+        const typedVersions = versions.map(v => ({
+          id: v.id || '',
+          datasetId: v.datasetId || '',
+          version: v.version || 1,
+          s3Key: v.s3Key || '',
+          size: v.size || 0,
+          rowCount: v.rowCount || 0,
+          uploadDate: v.uploadDate || '',
+          createdAt: v.createdAt || null,
+          updatedAt: v.updatedAt || null
+        })) as DatasetVersion[];
+
+        const sortedVersions = typedVersions.sort((a, b) => b.version - a.version);
+        setSelectedDatasetVersions(sortedVersions);
+        
+        if (sortedVersions.length > 0) {
+          setSelectedDatasetVersion(sortedVersions[0].version);
+          await fetchDatasetVersionPreview(sortedVersions[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dataset versions:', error);
+    }
+  };
+
   const handleDatasetNameChange = async (name: string) => {
     if (name === '+ Create new dataset') {
       setIsCreatingNewDataset(true);
       return;
     }
+    
     setSelectedDatasetName(name);
-    const versionsForName = datasets
-      .filter(d => d.name === name)
-      .sort((a, b) => b.version - a.version);
-    if (versionsForName.length > 0) {
-      const latestVersion = versionsForName[0].version;
-      setSelectedDatasetVersion(latestVersion);
-      const selected = versionsForName[0];
-      setSelectedDataset(selected);
-      setSelectedColumn(null);
-      if (selected) {
-        await fetchDatasetColumns(selected);
-      }
-    } else {
-      setSelectedDatasetVersion(null);
-      setSelectedDataset(null);
-      setSelectedColumn(null);
-      setColumns([]);
-      setPreviewData([]);
+    setSelectedDatasetVersion(null);
+    setSelectedColumn(null);
+    setColumns([]);
+    setPreviewData([]);
+    
+    const dataset = datasets.find(d => d.name === name);
+    if (dataset) {
+      setSelectedDataset(dataset);
+      await fetchDatasetVersions(dataset.id);
     }
   };
 
   const handleDatasetVersionChange = async (version: number) => {
-    console.log("Handling dataset version change:", version);
-    const selected = datasets.find(d => d.name === selectedDatasetName && d.version === version);
-    console.log("Selected dataset:", selected);
     setSelectedDatasetVersion(version);
-    setSelectedDataset(selected || null);
     setSelectedColumn(null);
-    if (selected) {
-      console.log("Fetching dataset columns for dataset:", selected);
-      await fetchDatasetColumns(selected);
+    
+    const selectedVersion = selectedDatasetVersions.find(v => v.version === version);
+    if (selectedVersion) {
+      await fetchDatasetVersionPreview(selectedVersion);
+    }
+  };
+
+  const fetchDatasetVersionPreview = async (version: DatasetVersion) => {
+    setIsLoadingPreview(true);
+    try {
+      const { body } = await downloadData({
+        path: version.s3Key,
+        options: {
+          bytesRange: {
+            start: 0,
+            end: 102400 // 100 KB
+          },
+        }
+      }).result;
+
+      const fileContent = await body.text();
+
+      Papa.parse(fileContent, {
+        header: true,
+        preview: 10,
+        complete: (results) => {
+          if (results.meta && results.meta.fields) {
+            setColumns(results.meta.fields);
+            setPreviewData(results.data);
+          }
+        },
+        error: (error: Error) => {
+          console.error('Error parsing CSV:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching dataset preview:', error);
+    } finally {
+      setIsLoadingPreview(false);
     }
   };
 
@@ -112,7 +231,7 @@ const CreateModel: React.FC = () => {
       console.log("Fetching dataset columns for dataset:", dataset);
       
       if (!dataset.s3Key) {
-        throw new Error("Dataset s3Key is undefined");
+        throw new Error("Dataset s3Path is undefined");
       }
 
       const { body } = await downloadData({
@@ -152,11 +271,79 @@ const CreateModel: React.FC = () => {
     setDatasets([...datasets, dataset]);
     setUniqueDatasetNames(Array.from(new Set([...uniqueDatasetNames, dataset.name])));
     setSelectedDatasetName(dataset.name);
-    setSelectedDatasetVersion(dataset.version);
     setSelectedDataset(dataset);
     setIsCreatingNewDataset(false);
     fetchDatasetColumns(dataset);
   };
+
+  async function createNewModelVersion(modelId: string) {
+    if (!user?.username || !user?.userId) {
+      throw new Error("User information not loaded");
+    }
+
+    try {
+      const dataset = datasets.find(d => d.name === selectedDatasetName);
+      const datasetVersion = selectedDatasetVersions.find(v => 
+        v.datasetId === dataset?.id && 
+        v.version === selectedDatasetVersion
+      );
+
+      if (!datasetVersion) {
+        throw new Error("Selected dataset version not found");
+      }
+
+      const { data: modelVersions } = await client.models.ModelVersion.list({
+        filter: { modelId: { eq: modelId } },
+      });
+      
+      const newVersion = modelVersions.length > 0 
+        ? Math.max(...modelVersions.map(v => v.version)) + 1 
+        : 1;
+
+      const s3OutputPath = generateStoragePath({
+        userId: user.userId,
+        projectId: currentProject?.id || '',
+        resourceType: 'models',
+        resourceId: modelId,
+      });
+
+      const fileUrl = `s3://${amplify_config.storage.bucket_name}/${datasetVersion.s3Key}`;
+
+      const { data: newModelVersion } = await client.models.ModelVersion.create({
+        modelId: modelId,
+        version: newVersion,
+        status: 'DRAFT',
+        targetFeature: selectedColumn || '',
+        fileUrl: fileUrl,
+        s3OutputPath: s3OutputPath,
+        datasetVersionId: datasetVersion.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      return newModelVersion;
+    } catch (error) {
+      console.error('Error creating model version:', error);
+      throw error;
+    }
+  }
+
+  async function createModel() {
+    try {
+      const { data: newModel } = await client.models.Model.create({
+        name: modelName,
+        description: 'Initial model creation', // Add description field
+        owner: user?.username || 'unknown_user',
+        projectId: currentProject?.id || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return newModel;
+    } catch (error) {
+      console.error('Error creating new model:', error);
+      throw error;
+    }
+  }
 
   const handleModelCreation = async () => {
     if (!currentProject || !modelName || !selectedDataset || !selectedColumn) {
@@ -164,70 +351,118 @@ const CreateModel: React.FC = () => {
       return;
     }
 
-    if (!selectedDataset.s3Key || !selectedDataset.id) {
-      console.error('Selected dataset is missing s3Key or id');
+    if (!user?.username) {
+      console.error('User information not loaded');
+      return;
+    }
+
+    const datasetVersion = selectedDatasetVersions.find(v => 
+      v.datasetId === selectedDataset.id && 
+      v.version === selectedDatasetVersion
+    );
+
+    if (!datasetVersion) {
+      console.error('Selected dataset version not found', {
+        selectedDataset,
+        selectedDatasetVersion,
+        availableVersions: selectedDatasetVersions
+      });
       return;
     }
 
     try {
-      // Check for existing models with the same name
-      const existingModels = await client.models.Model.listModelByNameAndVersion({
-        name: modelName,
-      });
+      setIsModelCreationSubmitted(true);
 
-      const latestVersion = existingModels.data && existingModels.data.length > 0
-        ? (existingModels.data[0] as unknown as Model).version + 1
-        : 1;
+      let modelId: string;
 
-      // Create a new model entry
-      const newModel = await client.models.Model.create({
-        name: modelName,
-        description: `Model generated from dataset: ${selectedDataset.name}`,
-        owner: user?.username || 'unknown_user',
-        version: latestVersion,
-        status: 'DRAFT',
-        targetFeature: selectedColumn,
-        fileUrl: selectedDataset.s3Key,
-        projectId: currentProject.id,
-        datasetId: selectedDataset.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      if (selectedModelId && selectedModelId !== '+ Create new model') {
+        modelId = selectedModelId;
+      } else {
+        const newModel = await createModel();
+        if (!newModel?.id) {
+          throw new Error('Failed to create new model');
+        }
+        modelId = newModel.id;
+      }
+      
+      const newModelVersion = await createNewModelVersion(modelId);
 
-      if (newModel.data) {
-        const modelId = newModel.data.id;
-
+      if (newModelVersion?.id) {
         try {
-          const userName = user?.username || 'unknown_user'
-          // Submit the training job
-          const result = await client.queries.runTrainingJob({
-            submittedBy: userName,
-            fileUrl: `s3://${amplify_config.storage.bucket_name}/${selectedDataset.s3Key}`,
+          console.log('Submitting training job with user:', user.username);
+          const { data: result } = await client.queries.runTrainingJob({
+            submittedBy: user.username,
+            fileUrl: newModelVersion.fileUrl,
             targetFeature: selectedColumn,
-            modelId: modelId,
+            modelVersionId: newModelVersion.id,
             projectId: currentProject.id,
+            outputPath: newModelVersion.s3OutputPath,
           });
 
-          if (result.data) {
-            const trainingJobResult = JSON.parse(result.data as string) as TrainingJobResult;
-            await client.models.Model.update({
-              id: modelId,
+          if (result) {
+            const trainingJobResult = JSON.parse(result as string) as TrainingJobResult;
+            await client.models.ModelVersion.update({
+              id: newModelVersion.id,
               trainingJobId: trainingJobResult.jobId,
               status: 'SUBMITTED',
             });
           }
+
+          navigate(`/models/${modelId}`);
         } catch (trainingError) {
           console.error('Error submitting training job:', trainingError);
-          await client.models.Model.update({
-            id: modelId,
-            status: "TRAINING_FAILED",
+          await client.models.ModelVersion.update({
+            id: newModelVersion.id,
+            status: 'TRAINING_FAILED',
           });
+          throw trainingError;
         }
-
-        navigate(`/models/${modelId}`);
       }
     } catch (error) {
-      console.error('Error creating model:', error);
+      console.error('Error in model creation process:', error);
+    } finally {
+      setIsModelCreationSubmitted(false);
+    }
+  };
+
+  const handleModelCreated = (model: Model) => {
+    setExistingModels([...existingModels, model]);
+    setSelectedModelId(model.id);
+    setIsCreatingNewModel(false);
+  };
+
+  const createNewModel = async () => {
+    if (!user?.username) {
+      console.error('User information not loaded');
+      return;
+    }
+
+    try {
+      const { data: newModel, errors } = await client.models.Model.create({
+        name: newModelName,
+        description: newModelDescription,
+        owner: user.username,
+        projectId: currentProject?.id || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      if (newModel) {
+        const typedModel: Model = {
+          id: newModel.id || '',
+          name: newModel.name || '',
+          description: newModel.description || '',
+          owner: newModel.owner || '',
+          projectId: newModel.projectId || '',
+          createdAt: newModel.createdAt || null,
+          updatedAt: newModel.updatedAt || null
+        };
+        
+        handleModelCreated(typedModel);
+        setModelName(typedModel.name);
+      }
+    } catch (error) {
+      console.error('Error creating new model:', error);
     }
   };
 
@@ -236,11 +471,83 @@ const CreateModel: React.FC = () => {
       <Header variant="h1">Create New Model</Header>
       <Form>
         <SpaceBetween size="m">
+          <FormField label="Select Existing Model">
+            <Select
+              selectedOption={
+                selectedModelId ? {
+                  label: selectedModelId === '+ Create new model' 
+                    ? '+ Create new model'
+                    : existingModels.find(m => m.id === selectedModelId)?.name || '',
+                  value: selectedModelId
+                } : null
+              }
+              onChange={({ detail }) => {
+                console.log('Model selection changed:', detail.selectedOption);
+                const newValue = detail.selectedOption.value || null;
+                setSelectedModelId(newValue);
+                
+                if (newValue === '+ Create new model') {
+                  setIsCreatingNewModel(true);
+                  setModelName('');  // Clear model name when creating new
+                } else {
+                  const selectedModel = existingModels.find(m => m.id === newValue);
+                  if (selectedModel) {
+                    setModelName(selectedModel.name);
+                  }
+                }
+              }}
+              options={[
+                { label: '+ Create new model', value: '+ Create new model' },
+                ...existingModels.map(model => ({
+                  label: model.name || 'Unnamed Model',
+                  value: model.id
+                }))
+              ]}
+              placeholder="Select an existing model"
+            />
+          </FormField>
+          {isCreatingNewModel && selectedModelId === '+ Create new model' && (
+            <Modal
+              onDismiss={() => {
+                setIsCreatingNewModel(false);
+                setSelectedModelId(null); // Reset selection when dismissing
+              }}
+              visible={true}
+              header="Create New Model"
+            >
+              <Form>
+                <SpaceBetween size="m">
+                  <FormField label="Model Name">
+                    <Input
+                      value={newModelName}
+                      onChange={({ detail }) => setNewModelName(detail.value)}
+                      placeholder="Enter model name"
+                    />
+                  </FormField>
+                  <FormField label="Description">
+                    <Input
+                      value={newModelDescription}
+                      onChange={({ detail }) => setNewModelDescription(detail.value)}
+                      placeholder="Enter model description"
+                    />
+                  </FormField>
+                  <Button
+                    variant="primary"
+                    onClick={createNewModel}
+                    disabled={!newModelName || !newModelDescription}
+                  >
+                    Create Model
+                  </Button>
+                </SpaceBetween>
+              </Form>
+            </Modal>
+          )}
           <FormField label="Model Name">
             <Input
               value={modelName}
               onChange={({ detail }) => setModelName(detail.value)}
               placeholder="Enter model name"
+              disabled={isModelCreationSubmitted || selectedModelId !== null} // Disable if an existing model is selected
             />
           </FormField>
           <FormField label="Select Dataset">
@@ -252,18 +559,27 @@ const CreateModel: React.FC = () => {
               ]}
               selectedOption={selectedDatasetName ? { label: selectedDatasetName, value: selectedDatasetName } : null}
               onChange={({ detail }) => handleDatasetNameChange(detail.selectedOption.value || '')}
+              disabled={isModelCreationSubmitted}
             />
           </FormField>
           {selectedDatasetName && (
             <FormField label="Select Dataset Version">
               <Select
                 placeholder="Choose a version"
-                options={datasets
-                  .filter(d => d.name === selectedDatasetName)
-                  .sort((a, b) => b.version - a.version)
-                  .map(d => ({ label: `Version ${d.version}`, value: d.version.toString() }))}
-                selectedOption={selectedDatasetVersion ? { label: `Version ${selectedDatasetVersion}`, value: selectedDatasetVersion.toString() } : null}
+                options={selectedDatasetVersions
+                  .map(version => ({
+                    label: `Version ${version.version}`,
+                    value: version.version.toString()
+                  }))
+                }
+                selectedOption={selectedDatasetVersion ? 
+                  { 
+                    label: `Version ${selectedDatasetVersion}`, 
+                    value: selectedDatasetVersion.toString() 
+                  } : null
+                }
                 onChange={({ detail }) => handleDatasetVersionChange(parseInt(detail.selectedOption.value || '0'))}
+                disabled={isModelCreationSubmitted}
               />
             </FormField>
           )}
@@ -279,8 +595,11 @@ const CreateModel: React.FC = () => {
                   header: col,
                   cell: (item: any) => item[col],
                 }))}
-                limit={10}
-                highlightedColumn={selectedColumn}  // Add this line
+                version={datasetVersions.find(v => 
+                  v.datasetId === selectedDataset.id && 
+                  v.version === selectedDatasetVersion
+                )}
+                highlightedColumn={selectedColumn}
               />
             )
           )}
@@ -291,13 +610,21 @@ const CreateModel: React.FC = () => {
                 options={columns.map(col => ({ label: col, value: col }))}
                 selectedOption={selectedColumn ? { label: selectedColumn, value: selectedColumn } : null}
                 onChange={({ detail }) => setSelectedColumn(detail.selectedOption.value || null)}
+                disabled={isModelCreationSubmitted}
               />
             </FormField>
           )}
           <Button
             variant="primary"
             onClick={handleModelCreation}
-            disabled={!modelName || !selectedDataset || !selectedColumn}
+            disabled={
+              !selectedDataset || 
+              !selectedColumn || 
+              (!selectedModelId && !modelName) || 
+              isModelCreationSubmitted ||
+              isUserLoading
+            }
+            loading={isModelCreationSubmitted}
           >
             Create Model and Start Training
           </Button>

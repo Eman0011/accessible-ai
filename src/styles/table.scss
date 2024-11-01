@@ -1,0 +1,8 @@
+.awsui-table-row:hover {
+  cursor: pointer;
+  background-color: var(--color-background-item-hover);
+}
+
+.awsui-dark-mode .awsui-table-row:hover {
+  background-color: var(--color-background-item-hover);
+} 

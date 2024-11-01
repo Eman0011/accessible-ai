@@ -13,14 +13,14 @@ import { Project } from './types/models';
 import brainLogo from './assets/images/cts-brain-logo.png';
 import Footer from "./components/Footer";
 
-import "./assets/css/default.css";
-import "./assets/css/styles.css";
-import "./assets/plugins/bootstrap/css/bootstrap.min.css";
-import "./assets/plugins/font-awesome/css/font-awesome.css";
+// import "./assets/css/default.css";
+// import "./assets/css/styles.css";
+// import "./assets/plugins/bootstrap/css/bootstrap.min.css";
+// import "./assets/plugins/font-awesome/css/font-awesome.css";
 
-import 'primeicons/primeicons.css';
-import 'primereact/resources/primereact.min.css';
-import 'primereact/resources/themes/saga-blue/theme.css';
+// import 'primeicons/primeicons.css';
+// import 'primereact/resources/primereact.min.css';
+// import 'primereact/resources/themes/saga-blue/theme.css';
 
 import AnimatedAssistant from './components/common/eda/AnimatedAssistant';
 import LandingPage from './components/pages/LandingPage';
@@ -39,6 +39,10 @@ import CreateDataset from './components/pages/Datasets/CreateDataset';
 import DatasetsHome from './components/pages/Datasets/DatasetsHome';
 import { UserProvider } from './contexts/UserContext';
 
+import DatasetDetails from './components/pages/Datasets/DatasetDetails';
+import Predictions from './components/pages/Models/Predictions'; // Import the new Predictions component
+import { createUserInfo } from './utils/userUtils';
+
 const client = generateClient<Schema>();
 
 interface AppContentProps {
@@ -47,11 +51,23 @@ interface AppContentProps {
 }
 
 const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
-  const { setUser } = useUser();
+  const { setUserInfo } = useUser();
   
   useEffect(() => {
-    setUser(user || null);
-  }, [user, setUser]);
+    const initializeUser = async () => {
+      if (user) {
+        try {
+          const userInfo = createUserInfo(user);
+          // You might want to fetch additional user data here
+          setUserInfo(userInfo);
+        } catch (error) {
+          console.error('Error initializing user info:', error);
+        }
+      }
+    };
+
+    initializeUser();
+  }, [user, setUserInfo]);
 
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isCreateProjectModalVisible, setIsCreateProjectModalVisible] = useState(false);
@@ -60,6 +76,7 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
   const navigate = useNavigate();
   const [showProjectWarning, setShowProjectWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const { userInfo } = useUser();
 
   const fetchProjects = useCallback(async () => {
     setIsLoading(true);
@@ -96,7 +113,8 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
 
   const navigationItems: ReadonlyArray<SideNavigationProps.Item> = [
     { type: 'link', text: 'Datasets', href: '/datasets' },
-    { type: 'link', text: 'Models', href: '/models' }
+    { type: 'link', text: 'Models', href: '/models' },
+    { type: 'link', text: 'Predictions', href: '/models/predictions' }
   ];
 
   const topNavigation = (
@@ -176,6 +194,7 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
         name: projectName,
         description: description,
         owner: user?.username || 'unknown_user',
+        organizationId: userInfo?.organizationId || '',
       });
       
       if (newProject.data) {
@@ -236,6 +255,8 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
                     <Route path="/models" element={<ModelsHome />} />
                     <Route path="/models/create" element={<CreateModel />} />
                     <Route path="/models/:modelId" element={<ModelDetails />} />
+                    <Route path="/models/predictions" element={<Predictions />} /> {/* New route */}
+                    <Route path="/datasets/:id" element={<DatasetDetails />} />
                   </Routes>
                 </>
               )}

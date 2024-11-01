@@ -1,82 +1,59 @@
 import {
-    Box,
-    Button,
-    Header,
-    Pagination,
-    SpaceBetween,
-    Table,
-    TextFilter,
+  Box,
+  Button,
+  Header,
+  Link,
+  SpaceBetween,
+  Table,
+  TableProps,
+  TextFilter
 } from '@cloudscape-design/components';
-import type { TableProps } from '@cloudscape-design/components'; // Add this import
 import { generateClient } from 'aws-amplify/api';
-import React, { useContext, useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Schema } from '../../../../amplify/data/resource';
 import { ProjectContext } from '../../../contexts/ProjectContext';
-import { Model } from '../../../types/models';
+import { Model, ModelVersion } from '../../../types/models';
+import { Link as RouterLink } from 'react-router-dom';
 
 const client = generateClient<Schema>();
 
 const ModelsHome: React.FC = () => {
   const { currentProject } = useContext(ProjectContext);
-  const [allModels, setAllModels] = useState<Model[]>([]);
-  const [displayedModels, setDisplayedModels] = useState<Model[]>([]);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [models, setModels] = useState<Model[]>([]);
+  const [modelVersions, setModelVersions] = useState<{ [key: string]: ModelVersion[] }>({});
   const [filteringText, setFilteringText] = useState('');
-  const [sortingColumn, setSortingColumn] = useState<{ sortingField: keyof Model; sortingDescending: boolean } | null>(null);
-  const itemsPerPage = 20;
 
   useEffect(() => {
-    fetchModels();
-  }, []);
-
-  const filteredModels = useMemo(() => {
-    let filtered = allModels;
     if (currentProject) {
-      filtered = filtered.filter(model => model.projectId === currentProject.id);
+      fetchModels();
     }
-    if (filteringText) {
-      const lowerCaseFilter = filteringText.toLowerCase();
-      filtered = filtered.filter(model => 
-        Object.values(model).some(value => 
-          value && value.toString().toLowerCase().includes(lowerCaseFilter)
-        )
-      );
-    }
-    return filtered;
-  }, [allModels, currentProject, filteringText]);
-
-  useEffect(() => {
-    let sortedModels = [...filteredModels];
-    if (sortingColumn) {
-      sortedModels.sort((a, b) => {
-        const aValue = a[sortingColumn.sortingField];
-        const bValue = b[sortingColumn.sortingField];
-        if (aValue != null && bValue != null) {
-          if (aValue < bValue) return sortingColumn.sortingDescending ? 1 : -1;
-          if (aValue > bValue) return sortingColumn.sortingDescending ? -1 : 1;
-        }
-        return 0;
-      });
-    }
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    setDisplayedModels(sortedModels.slice(startIndex, endIndex));
-  }, [filteredModels, currentPage, sortingColumn]);
+  }, [currentProject]);
 
   const fetchModels = async () => {
-    setLoading(true);
     try {
-      const response = await client.models.Model.list();
-      if (response.data) {
-        setAllModels(response.data.map(model => ({
-          ...model,
-          // Remove this line if status is not in the schema
-          // status: model.status || 'DRAFT'
-          s3OutputPath: model.s3OutputPath // Add this line
-        })) as unknown as Model[]);
-      }
+      setLoading(true);
+      const { data: fetchedModels } = await client.models.Model.list({
+        filter: { projectId: { eq: currentProject?.id } }
+      });
+
+      const modelsWithVersions = fetchedModels as Model[];
+      const versionsMap: { [key: string]: ModelVersion[] } = {};
+
+      // Fetch versions for each model
+      await Promise.all(
+        modelsWithVersions.map(async (model) => {
+          const { data: versions } = await client.models.ModelVersion.list({
+            filter: { modelId: { eq: model.id } }
+          });
+          versionsMap[model.id] = versions as ModelVersion[];
+        })
+      );
+
+      setModels(modelsWithVersions);
+      setModelVersions(versionsMap);
     } catch (error) {
       console.error('Error fetching models:', error);
     } finally {
@@ -84,122 +61,113 @@ const ModelsHome: React.FC = () => {
     }
   };
 
-  const columnDefinitions = [
+  const getLatestVersion = (modelId: string): ModelVersion | undefined => {
+    const versions = modelVersions[modelId] || [];
+    return versions.reduce((latest, current) => 
+      !latest || current.version > latest.version ? current : latest
+    , undefined);
+  };
+
+  const columnDefinitions: TableProps.ColumnDefinition<Model>[] = [
     {
       id: 'name',
       header: 'Name',
-      cell: (item: Model) => <Link to={`/models/${item.id}`}>{item.name}</Link>,
-      sortingField: 'name',
+      cell: (item) => (
+        <Link
+          onFollow={(event) => {
+            event.preventDefault();
+            navigate(`/models/${item.id}`);
+          }}
+          href="#"
+        >
+          {item.name}
+        </Link>
+      ),
+      sortingField: 'name'
     },
-    { id: 'description', header: 'Description', cell: (item: Model) => item.description, sortingField: 'description' },
-    { 
-      id: 'version', 
-      header: 'Current Version', 
-      cell: (item: Model) => item.version,
-      sortingField: 'version',
+    {
+      id: 'description',
+      header: 'Description',
+      cell: (item) => item.description
     },
-    { id: 'owner', header: 'Owner', cell: (item: Model) => item.owner, sortingField: 'owner' },
-    { 
-      id: 'createdAt', 
-      header: 'Created At', 
-      cell: (item: Model) => new Date(item.createdAt).toLocaleString(),
-      sortingField: 'createdAt',
+    {
+      id: 'version',
+      header: 'Latest Version',
+      cell: (item) => {
+        const latestVersion = getLatestVersion(item.id);
+        return latestVersion ? `v${latestVersion.version}` : 'No versions';
+      }
     },
-    { 
-      id: 'updatedAt', 
-      header: 'Updated At', 
-      cell: (item: Model) => new Date(item.updatedAt).toLocaleString(),
-      sortingField: 'updatedAt',
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (item) => {
+        const latestVersion = getLatestVersion(item.id);
+        return latestVersion ? latestVersion.status : '-';
+      }
     },
-    { 
-      id: 'status', 
-      header: 'Status', 
-      cell: (item: Model) => {
-        switch(item.status) {
-          case 'DRAFT':
-            return <span style={{color: 'orange'}}>Draft</span>;
-          case 'SUBMITTED':
-            return <span style={{color: 'blue'}}>Submitted</span>;
-          case 'TRAINING':
-            return <span style={{color: 'teal'}}>Training</span>;
-          case 'TRAINING_COMPLETED':
-            return <span style={{color: 'green'}}>Training Completed</span>;
-          case 'TRAINING_FAILED':
-            return <span style={{color: 'red'}}>Training Failed</span>;
-          case 'PUBLISHED':
-            return <span style={{color: 'purple'}}>Published</span>;
-          case 'ARCHIVED':
-            return <span style={{color: 'gray'}}>Archived</span>;
-          default:
-            return item.status;
-        }
-      },
-      sortingField: 'status',
-    },
+    {
+      id: 'updatedAt',
+      header: 'Last Updated',
+      cell: (item) => {
+        const latestVersion = getLatestVersion(item.id);
+        return latestVersion 
+          ? new Date(latestVersion.updatedAt || '').toLocaleDateString()
+          : new Date(item.updatedAt || '').toLocaleDateString();
+      }
+    }
   ];
 
-  const pagesCount = Math.ceil(filteredModels.length / itemsPerPage);
+  const filteredModels = models.filter(model => 
+    model.name.toLowerCase().includes(filteringText.toLowerCase()) ||
+    model.description.toLowerCase().includes(filteringText.toLowerCase())
+  );
 
   return (
-    <Box padding="l">
-      <SpaceBetween size="l">
-        <Header
-          variant="h1"
-          actions={
-            <Link to="/models/create">
-              <Button variant="primary">Create New Model</Button>
-            </Link>
-          }
-        >
-          Models {currentProject ? `for ${currentProject.name}` : ''}
-        </Header>
-        <Table
-          loading={loading}
-          loadingText="Loading models..."
-          items={displayedModels}
-          columnDefinitions={columnDefinitions}
-          header={
-            <Header
-              variant="h2"
-              counter={`(${filteredModels.length})`}
-              actions={
-                <TextFilter
-                  filteringText={filteringText}
-                  filteringPlaceholder="Find models"
-                  filteringAriaLabel="Filter models"
-                  onChange={({ detail }) => {
-                    setFilteringText(detail.filteringText);
-                    setCurrentPage(1); // Reset to first page when filtering
-                  }}
-                />
-              }
-            >
-              Your Models
-            </Header>
-          }
-          sortingColumn={sortingColumn as TableProps.SortingColumn<Model> | undefined}
-          sortingDescending={sortingColumn?.sortingDescending}
-          onSortingChange={({ detail }) => {
-            setSortingColumn(detail.sortingColumn as { sortingField: keyof Model; sortingDescending: boolean } | null);
-          }}
-          empty={
-            <Box textAlign="center" color="inherit">
-              <b>No models</b>
-              <Box padding={{ bottom: 's' }} variant="p" color="inherit">
-                You don't have any models yet.
-              </Box>
+    <SpaceBetween size="l">
+      <Header
+        variant="h1"
+        actions={
+          <Button variant="primary" onClick={() => navigate('/models/create')}>
+            Create Model
+          </Button>
+        }
+      >
+        Models
+      </Header>
+
+      <Table
+        loading={loading}
+        loadingText="Loading models..."
+        items={filteredModels}
+        columnDefinitions={columnDefinitions}
+        trackBy="id"
+        variant="container"
+        header={
+          <Header
+            counter={`(${filteredModels.length})`}
+            actions={
+              <TextFilter
+                filteringText={filteringText}
+                filteringPlaceholder="Find models"
+                filteringAriaLabel="Filter models"
+                onChange={({ detail }) => setFilteringText(detail.filteringText)}
+              />
+            }
+          >
+            Your Models
+          </Header>
+        }
+        empty={
+          <Box textAlign="center" color="inherit">
+            <b>No models</b>
+            <Box padding={{ bottom: 's' }} variant="p" color="inherit">
+              No models found.
             </Box>
-          }
-        />
-        {pagesCount > 1 && (
-          <Pagination
-            currentPageIndex={currentPage}
-            onChange={({ detail }) => setCurrentPage(detail.currentPageIndex)}
-            pagesCount={pagesCount}
-          />
-        )}
-      </SpaceBetween>
-    </Box>
+          </Box>
+        }
+      />
+    </SpaceBetween>
   );
 };
 

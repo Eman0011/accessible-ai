@@ -3,7 +3,9 @@ import {
   Alert,
   Button,
   FormField,
+  Header,
   Input,
+  Select,
   SpaceBetween,
   TableProps,
   Textarea,
@@ -15,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Schema } from '../../../amplify/data/resource';
 import { useUser } from '../../contexts/UserContext';
 import { Dataset } from '../../types/models';
+import { generateStoragePath, validateUserAccess } from '../../utils/storageUtils';
 import DatasetVisualizer from './DatasetVisualizer';
 
 const client = generateClient<Schema>();
@@ -25,7 +28,7 @@ interface DatasetUploaderProps {
 }
 
 const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, projectId }) => {
-  const { user } = useUser();
+  const { userInfo } = useUser();
   const [datasetName, setDatasetName] = useState('');
   const [datasetDescription, setDatasetDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -40,10 +43,15 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
   const [estimatedRowCount, setEstimatedRowCount] = useState<number | null>(null);
   const [actualRowCount, setActualRowCount] = useState<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const [existingDatasets, setExistingDatasets] = useState<Dataset[]>([]);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [isCreatingNewDataset, setIsCreatingNewDataset] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState<number>(0);
+  const [uploadBasePath, setUploadBasePath] = useState<string>('');
 
   useEffect(() => { 
-    if (file) {
-      setDatasetName(file.name.replace(/\.[^/.]+$/, "")); // Set default dataset name to file name without extension
+    if (file && !datasetName) {
+      setDatasetName(file.name.replace(/\.[^/.]+$/, ""));
     }
   }, [file]);
 
@@ -144,20 +152,81 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     });
   };
 
-  const getNewVersion = async () => {
-    const existingDatasets = await client.models.Dataset.listDatasetByNameAndVersion({
-      name: datasetName,
-    });
-    console.log("Existing Datasets:", existingDatasets);
-    let newVersion = 1;
-    if (existingDatasets.data && existingDatasets.data.length > 0) {
-      newVersion = (existingDatasets.data[existingDatasets.data.length - 1] as unknown as Dataset).version + 1;
+  const fetchExistingDatasets = async () => {
+    try {
+      const { data: datasets } = await client.models.Dataset.list({
+        filter: { projectId: { eq: projectId } }
+      });
+      setExistingDatasets(datasets as unknown as Dataset[]);
+    } catch (error) {
+      console.error('Error fetching datasets:', error);
+      setError('Error fetching existing datasets');
     }
-    return newVersion;
-  }
+  };
 
-  const createDataset = async () => {
-    if (!file || !datasetName || !projectId || !datasetId) {
+  const createNewDataset = async () => {
+    try {
+      const { data: newDataset } = await client.models.Dataset.create({
+        id: datasetId,
+        name: datasetName,
+        description: datasetDescription,
+        owner: userInfo?.userName || 'unknown_user',
+        ownerId: userInfo?.userId || 'unknown_user',
+        projectId: projectId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      console.log("New Dataset: ", newDataset)
+      return newDataset;
+    } catch (error) {
+      console.error('Error creating dataset:', error);
+      throw error;
+    }
+  };
+
+  const createDatasetVersion = async (datasetId: string) => {
+    if (!file || !uploadBasePath) return null;
+    
+    try {
+      const newVersion = await getNewVersion(datasetId);
+      const s3Key = `${uploadBasePath}${file.name}`;
+
+      const { data: newDatasetVersion } = await client.models.DatasetVersion.create({
+        datasetId: datasetId,
+        version: newVersion,
+        s3Key: s3Key,
+        size: file.size,
+        rowCount: actualRowCount || estimatedRowCount || 0,
+        uploadDate: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      return newDatasetVersion;
+    } catch (error) {
+      console.error('Error creating dataset version:', error);
+      throw error;
+    }
+  };
+
+  const getNewVersion = async (datasetId: string) => {
+    try {
+      const { data: versions } = await client.models.DatasetVersion.list({
+        filter: { datasetId: { eq: datasetId } }
+      });
+      let newVersion = 1;
+      if (versions && versions.length > 0) {
+        newVersion = Math.max(...versions.map(v => v.version)) + 1;
+      }
+      return newVersion;
+    } catch (error) {
+      console.error('Error fetching dataset versions:', error);
+      throw error;
+    }
+  };
+
+  const handleCreateDataset = async () => {
+    if (!file || !datasetName || !projectId) {
       setError('Missing required fields for dataset creation');
       return;
     }
@@ -165,121 +234,225 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     setError(null);
     setIsCreatingDataset(true);
     try {
-      const newVersion = await getNewVersion();
-      setNewVersion(newVersion);
-      const s3Key = `projects/${projectId}/datasets/${datasetId}/${file.name}`;
+      let targetDatasetId: string;
 
-      const newDataset = await client.models.Dataset.create({
-        id: datasetId,
-        name: datasetName,
-        description: datasetDescription,
-        owner: user?.username || 'unknown_user',
-        version: newVersion,
-        s3Key: s3Key,
-        size: file.size,
-        rowCount: actualRowCount || estimatedRowCount || 0,
-        projectId: projectId,
-        uploadDate: new Date().toISOString(),
-      });
+      if (selectedDatasetId === '+ Create new dataset') {
+        const newDataset = await createNewDataset();
+        targetDatasetId = newDataset.id;
+      } else {
+        targetDatasetId = selectedDatasetId || '';
+      }
 
-      if (newDataset.data) {
-        onDatasetCreated(newDataset.data as unknown as Dataset);
-        // Reset form
-        setDatasetName('');
-        setDatasetDescription('');
-        setFile(null);
-        setDisplayData([]);
-        setColumns([]);
-        setIsFileSelected(false);
-        setEstimatedRowCount(null);
-        setActualRowCount(null);
-        setIsUploadComplete(false);
+      const newVersion = await createDatasetVersion(targetDatasetId);
+      
+      if (newVersion) {
+        // Fetch the complete dataset with its new version
+        const { data: updatedDataset } = await client.models.Dataset.get({ id: targetDatasetId });
+        onDatasetCreated(updatedDataset as unknown as Dataset);
+        resetForm();
       }
     } catch (error) {
-      console.error('Error creating dataset:', error);
+      console.error('Error in dataset creation process:', error);
       setError('Error creating dataset. Please try again.');
     } finally {
       setIsCreatingDataset(false);
     }
   };
 
-  // console.log("Render state", { isFileSelected, isCreatingDataset, isUploadComplete, datasetName, file: file?.name });
+  const resetForm = () => {
+    setDatasetName('');
+    setDatasetDescription('');
+    setFile(null);
+    setDisplayData([]);
+    setColumns([]);
+    setIsFileSelected(false);
+    setEstimatedRowCount(null);
+    setActualRowCount(null);
+    setIsUploadComplete(false);
+    setSelectedDatasetId(null);
+  };
+
+  useEffect(() => {
+    fetchExistingDatasets();
+  }, [projectId]);
+
+  useEffect(() => {
+    if (selectedDatasetId && selectedDatasetId !== '+ Create new dataset') {
+      fetchCurrentVersion(selectedDatasetId);
+    }
+  }, [selectedDatasetId]);
+
+  const fetchCurrentVersion = async (datasetId: string) => {
+    try {
+      const { data: versions } = await client.models.DatasetVersion.list({
+        filter: { datasetId: { eq: datasetId } }
+      });
+      if (versions && versions.length > 0) {
+        const maxVersion = Math.max(...versions.map(v => v.version));
+        setCurrentVersion(maxVersion);
+      }
+    } catch (error) {
+      console.error('Error fetching dataset versions:', error);
+    }
+  };
+
+  const getDatasetPreview = () => {
+    if (!isFileSelected || !displayData.length) return null;
+
+    const uploadDate = new Date().toISOString();
+    const size = file?.size || 0;
+    const formattedSize = size ? (size / (1024 * 1024)).toFixed(2) : '0';
+
+    return (
+      <DatasetVisualizer
+        dataset={{
+          name: datasetName,
+          description: datasetDescription,
+          owner: userInfo?.userName || 'unknown_user',
+          projectId: projectId,
+          id: selectedDatasetId || datasetId,
+        }}
+        previewData={displayData}
+        columns={columns}
+        version={{
+          uploadDate,
+          size,
+          rowCount: actualRowCount || estimatedRowCount || 0,
+          version: currentVersion + 1
+        }}
+      />
+    );
+  };
+
+  useEffect(() => {
+    if (userInfo?.userId && projectId && datasetId) {
+      const basePath = generateStoragePath({
+        userId: userInfo.userId,
+        projectId,
+        resourceType: 'datasets',
+        resourceId: datasetId
+      });
+      
+      if (validateUserAccess(userInfo, userInfo.userId)) {
+        setUploadBasePath(basePath + "/");
+      } else {
+        setError('You do not have permission to upload to this location');
+      }
+    }
+  }, [userInfo, projectId, datasetId]);
 
   return (
     <SpaceBetween size="m">
       {error && <Alert type="error" header="Error">{error}</Alert>}
-      {!isCreatingDataset && (
-        <FileUploader
-          path={`projects/${projectId}/datasets/${datasetId}/`}
-          acceptedFileTypes={['.csv', '.tsv']}
-          maxFileCount={1}
-          processFile={processFile}
-          onUploadStart={() => {
-            console.log("Upload started");
+      
+      <FormField label="Dataset">
+        <Select
+          selectedOption={selectedDatasetId ? 
+            { label: existingDatasets.find(d => d.id === selectedDatasetId)?.name || '', 
+              value: selectedDatasetId 
+            } : null
+          }
+          onChange={({ detail }) => {
+            const selectedValue = detail.selectedOption.value;
+            setSelectedDatasetId(selectedValue || null);
+            
+            if (selectedValue === '+ Create new dataset') {
+              setIsCreatingNewDataset(true);
+              setDatasetName('');
+              setDatasetDescription('');
+            } else {
+              setIsCreatingNewDataset(false);
+              const dataset = existingDatasets.find(d => d.id === selectedValue);
+              if (dataset) {
+                setDatasetName(dataset.name);
+                setDatasetDescription(dataset.description);
+              }
+            }
           }}
-          onUploadSuccess={() => {
-            console.log("Upload success");
-            setIsUploadComplete(true);
-          }}
-          onUploadError={(error) => {
-            console.error('Error uploading file:', error);
-            setError(`Error uploading file: ${error}`);
-          }}
-          onFileRemove={() => {
-            console.log("File removed");
-            setFile(null);
-            setIsFileSelected(false);
-            setNewVersion(1);
-            setDisplayData([]);
-            setColumns([]);
-            setError(null);
-            setDatasetName('');
-            setEstimatedRowCount(0);
-            setIsUploadComplete(false);
-          }}
+          options={[
+            { label: '+ Create new dataset', value: '+ Create new dataset' },
+            ...existingDatasets.map(dataset => ({
+              label: dataset.name,
+              value: dataset.id
+            }))
+          ]}
+          placeholder="Choose a dataset or create new"
         />
-      )}
-      {isFileSelected && (
-        <SpaceBetween size="m">
-          <FormField label="Dataset Name">
-            <Input
-              value={datasetName}
-              onChange={({ detail }) => setDatasetName(detail.value)}
-              placeholder="Enter dataset name"
-              disabled={isCreatingDataset}
-            />
-          </FormField>
-          <FormField label="Description">
-            <Textarea
-              value={datasetDescription}
-              onChange={({ detail }) => setDatasetDescription(detail.value)}
-              placeholder="Enter dataset description"
-              disabled={isCreatingDataset}
-            />
-          </FormField>
-          {displayData.length > 0 && (
-            <DatasetVisualizer
-              dataset={{
-                name: datasetName,
-                version: newVersion,
-                rowCount: actualRowCount || estimatedRowCount || 0,
-                size: file?.size || 0,
-                uploadDate: new Date().toISOString(),
-              }}
-              previewData={displayData}
-              columns={columns}
-            />
+      </FormField>
+
+      <FormField label="Dataset Name">
+        <Input
+          value={datasetName}
+          onChange={({ detail }) => setDatasetName(detail.value)}
+          placeholder="Enter dataset name"
+          disabled={!isCreatingNewDataset || isCreatingDataset}
+        />
+      </FormField>
+
+      <FormField label="Description">
+        <Textarea
+          value={datasetDescription}
+          onChange={({ detail }) => setDatasetDescription(detail.value)}
+          placeholder="Enter dataset description"
+          disabled={!isCreatingNewDataset || isCreatingDataset}
+        />
+      </FormField>
+
+      {/* File upload section */}
+      {!isCreatingDataset && (selectedDatasetId || isCreatingNewDataset) && uploadBasePath && (
+        <>
+          {selectedDatasetId && selectedDatasetId !== '+ Create new dataset' && (
+            <Header 
+              variant="h3"
+              description={`Current version: ${currentVersion}`}
+            >
+              Upload New Dataset Version
+            </Header>
           )}
-          <Button 
-            onClick={createDataset} 
-            variant="primary"
-            loading={isCreatingDataset}
-            disabled={!datasetName || !file || !isFileSelected || !isUploadComplete || isCreatingDataset}
-          >
-            Create Dataset
-          </Button>
-        </SpaceBetween>
+          <FileUploader
+            path={uploadBasePath}
+            acceptedFileTypes={['.csv', '.tsv']}
+            maxFileCount={1}
+            processFile={processFile}
+            onUploadStart={() => {
+              console.log("Upload started");
+            }}
+            onUploadSuccess={() => {
+              console.log("Upload success");
+              setIsUploadComplete(true);
+            }}
+            onUploadError={(error) => {
+              console.error('Error uploading file:', error);
+              setError(`Error uploading file: ${error}`);
+            }}
+            onFileRemove={() => {
+              console.log("File removed");
+              setFile(null);
+              setIsFileSelected(false);
+              setDisplayData([]);
+              setColumns([]);
+              setError(null);
+              setEstimatedRowCount(0);
+              setIsUploadComplete(false);
+            }}
+          />
+        </>
       )}
+
+      {/* Preview section */}
+      {getDatasetPreview()}
+
+      <Button 
+        onClick={handleCreateDataset} 
+        variant="primary"
+        loading={isCreatingDataset}
+        disabled={!datasetName || !file || !isFileSelected || !isUploadComplete || isCreatingDataset}
+      >
+        {selectedDatasetId && selectedDatasetId !== '+ Create new dataset' 
+          ? 'Create New Version' 
+          : 'Create Dataset'
+        }
+      </Button>
     </SpaceBetween>
   );
 };

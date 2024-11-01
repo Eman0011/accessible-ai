@@ -1,34 +1,42 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
+  Alert,
+  Box,
+  Button,
   ColumnLayout,
   Container,
+  ExpandableSection,
+  Grid,
   Header,
+  Icon,
+  Link,
+  RadioGroup,
   SpaceBetween,
   Spinner,
+  StatusIndicator,
   Table,
-  StatusIndicator
+  Tabs
 } from '@cloudscape-design/components';
 import { generateClient } from "aws-amplify/api";
-import { fetchAuthSession } from 'aws-amplify/auth';
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip
+} from 'chart.js';
 import React, { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
 import { TRAINING_OUTPUT_BUCKET } from '../../../../Config';
-import { Model } from '../../../types/models';
+import { Model, ModelVersion } from '../../../types/models';
+import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
+import styles from './ModelDetails.module.css';
 
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartOptions
-} from 'chart.js';
-
+// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -41,6 +49,7 @@ ChartJS.register(
 
 const client = generateClient<Schema>();
 
+// Add these interfaces at the top of the file
 interface ModelMetrics {
   accuracy: number;
   confusion_matrix: {
@@ -63,6 +72,7 @@ interface ModelMetrics {
     fpr: number[];
     tpr: number[];
   };
+  total_pipelines?: number;
 }
 
 interface PipelineStep {
@@ -72,154 +82,446 @@ interface PipelineStep {
   params: { [key: string]: any };
 }
 
-interface AUCData {
-  fpr: number[];
-  tpr: number[];
-}
-
 const ModelDetails: React.FC = () => {
   const { modelId } = useParams<{ modelId: string }>();
+  const navigate = useNavigate();
+  const [model, setModel] = useState<Model | null>(null);
+  const [versions, setVersions] = useState<ModelVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('details');
+  const [modelOutputData, setModelOutputData] = useState<any>(null);
   const [metrics, setMetrics] = useState<ModelMetrics | null>(null);
   const [pipeline, setPipeline] = useState<PipelineStep[]>([]);
-  const [model, setModel] = useState<Model | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [aucData, setAucData] = useState<AUCData | null>(null);
+  const [showPipelineInfo, setShowPipelineInfo] = useState(true);
+  const [showEnterpriseAlert, setShowEnterpriseAlert] = useState(true);
 
-  const getS3Object = async (key: string) => {
+  useEffect(() => {
+    if (modelId) {
+      fetchModelDetails();
+    }
+  }, [modelId]);
+
+  const getModelOutput = async (key: string) => {
+    return await getS3JSONFromBucket<any>(key, TRAINING_OUTPUT_BUCKET);
+  };
+
+  const fetchModelOutputData = async (version: ModelVersion) => {
     try {
-      const session = await fetchAuthSession();
-      const s3Client = new S3Client({
-        region: 'us-east-1', // Make sure this is the correct region
-        credentials: session.credentials,
+      console.log('Model Version Data:', {
+        version,
+        modelUrl: version.modelUrl || '',
+        s3OutputPath: version.s3OutputPath || '',
+        fileUrl: version.fileUrl || ''
       });
 
-      const command = new GetObjectCommand({
-        Bucket: TRAINING_OUTPUT_BUCKET,
-        Key: key,
+      let basePath = version.s3OutputPath;
+
+      if (!basePath) {
+        console.error('No valid S3 path found in version:', version);
+        return;
+      }
+
+      // Construct the full paths
+      const metricsPath = `${basePath}/best_model_metrics.json`;
+      const pipelinePath = `${basePath}/best_model_pipeline.json`;
+      
+      console.log('Attempting to fetch from paths:', {
+        metricsPath,
+        pipelinePath,
+        bucket: TRAINING_OUTPUT_BUCKET
       });
 
-      const response = await s3Client.send(command);
-      const str = await response.Body?.transformToString();
-      return JSON.parse(str || '{}');
+      // Fetch both files using the S3 client
+      const [metricsData, pipelineData] = await Promise.all([
+        getModelOutput(metricsPath),
+        getModelOutput(pipelinePath)
+      ]);
+      
+      console.log('Successfully fetched model output data:', {
+        metrics: metricsData,
+        pipeline: pipelineData
+      });
+
+      setMetrics(metricsData);
+      setPipeline(pipelineData);
+      setModelOutputData({
+        metrics: metricsData,
+        pipeline: pipelineData
+      });
     } catch (error) {
-      console.error('Error downloading S3 object:', error);
-      throw error;
+      console.error('Error fetching model output data:', error);
     }
   };
 
-  const generateSampleAUCData = (auc: number): AUCData => {
-    const fpr = [0, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999, 0.9999, 1];
-    const tpr = fpr.map(x => {
-      const y = Math.pow(x, (1 / auc - 1));
-      return Math.max(0, Math.min(1, y + (Math.random() - 0.5) * 0.1));
-    });
-    return { fpr, tpr };
+  const fetchModelDetails = async () => {
+    try {
+      setLoading(true);
+      const { data: fetchedModel } = await client.models.Model.get({ id: modelId });
+      const { data: fetchedVersions } = await client.models.ModelVersion.list({
+        filter: { modelId: { eq: modelId } }
+      });
+
+      console.log('Fetched Model Data:', {
+        model: fetchedModel,
+        versions: fetchedVersions
+      });
+
+      if (!fetchedModel) {
+        throw new Error('Model not found');
+      }
+
+      const modelData: Model = {
+        id: fetchedModel.id || '',
+        name: fetchedModel.name || '',
+        description: fetchedModel.description || '',
+        owner: fetchedModel.owner || '',
+        projectId: fetchedModel.projectId || '',
+        createdAt: fetchedModel.createdAt || null,
+        updatedAt: fetchedModel.updatedAt || null
+      };
+
+      const versionData: ModelVersion[] = (fetchedVersions || []).map(v => ({
+        id: v.id || '',
+        modelId: v.modelId || '',
+        version: v.version || 0,
+        status: v.status as ModelStatus || 'DRAFT',
+        targetFeature: v.targetFeature || '',
+        fileUrl: v.fileUrl || '',
+        modelUrl: v.modelUrl || '',
+        trainingJobId: v.trainingJobId || '',
+        performanceMetrics: {},
+        createdAt: v.createdAt || null,
+        updatedAt: v.updatedAt || null,
+        datasetVersionId: v.datasetVersionId || ''
+      }));
+
+      console.log('Processed Model Data:', {
+        modelData,
+        versionData
+      });
+
+      const sortedVersions = versionData.sort((a, b) => b.version - a.version);
+      setModel(modelData);
+      setVersions(sortedVersions);
+      
+      if (sortedVersions.length > 0) {
+        setSelectedVersion(sortedVersions[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching model details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'TRAINING_COMPLETED':
+        return 'success';
+      case 'TRAINING_FAILED':
+        return 'error';
+      case 'TRAINING':
+        return 'in-progress';
+      case 'DRAFT':
+        return 'pending';
+      default:
+        return 'info';
+    }
   };
 
   useEffect(() => {
-    const fetchModelDetails = async () => {
-      try {
-        const modelResponse = await client.models.Model.get({ id: modelId });
-        const modelData: Model = modelResponse.data as unknown as Model;
-        setModel(modelData);
+    const selectedModelVersion = versions.find(v => v.id === selectedVersion);
+    if (selectedModelVersion?.status === 'TRAINING_COMPLETED') {
+      fetchModelOutputData(selectedModelVersion);
+    }
+  }, [selectedVersion, versions]);
 
-        if (modelData.status === 'TRAINING_COMPLETED') {
-          let s3OutputPath = `${modelData.owner}/projects/${modelData.projectId}/models/${modelData.id}`;
-          console.log('s3OutputPath', s3OutputPath);
+  const renderOverviewAndVersions = () => (
+    <Grid
+      gridDefinition={[
+        { colspan: 4 },
+        { colspan: 8 }
+      ]}
+    >
+      <Container header={<Header variant="h2">Model Versions</Header>}>
+        <div className={styles.versionsContainer}>
+          <RadioGroup
+            onChange={({ detail }) => setSelectedVersion(detail.value)}
+            value={selectedVersion || ''}
+            items={versions.map(version => ({
+              value: version.id,
+              label: `Version ${version.version}`,
+              description: (
+                <SpaceBetween size="xs" direction="horizontal">
+                  <StatusIndicator type={getStatusColor(version.status)}>{version.status}</StatusIndicator>
+                  <span>{new Date(version.createdAt || '').toLocaleDateString()}</span>
+                  {version.targetFeature && <span>Target: {version.targetFeature}</span>}
+                </SpaceBetween>
+              )
+            }))}
+          />
+        </div>
+      </Container>
 
-          // Fetch metrics
-          const metricsData: ModelMetrics = await getS3Object(`${s3OutputPath}/best_model_metrics.json`);
-          setMetrics(metricsData);
-          console.log('metricsData', metricsData);
+      <div className={styles.overviewDetailsContainer}>
+        <SpaceBetween size="l">
+          <Container header={<Header variant="h2">Model Overview</Header>}>
+            <ColumnLayout columns={2}>
+              <div>
+                <Box variant="awsui-key-label">Name</Box>
+                <div>{model?.name}</div>
+              </div>
+              <div>
+                <Box variant="awsui-key-label">Owner</Box>
+                <div>{model?.owner}</div>
+              </div>
+              <div>
+                <Box variant="awsui-key-label">Description</Box>
+                <div>{model?.description}</div>
+              </div>
+              <div>
+                <Box variant="awsui-key-label">Created</Box>
+                <div>{new Date(model?.createdAt || '').toLocaleString()}</div>
+              </div>
+            </ColumnLayout>
+          </Container>
 
-          // Fetch pipeline
-          const pipelineData: PipelineStep[] = await getS3Object(`${s3OutputPath}/best_model_pipeline.json`);
-          setPipeline(pipelineData);
-          console.log('pipelineData', pipelineData);
+          {selectedVersion && (
+            <Container header={<Header variant="h2">Version Details</Header>}>
+              <ColumnLayout columns={2}>
+                <div>
+                  <Box variant="awsui-key-label">Status</Box>
+                  <StatusIndicator type={getStatusColor(versions.find(v => v.id === selectedVersion)!.status)}>
+                    {versions.find(v => v.id === selectedVersion)!.status}
+                  </StatusIndicator>
+                </div>
+                <div>
+                  <Box variant="awsui-key-label">Target Feature</Box>
+                  <div>{versions.find(v => v.id === selectedVersion)!.targetFeature || '-'}</div>
+                </div>
+                <div>
+                  <Box variant="awsui-key-label">Dataset Version</Box>
+                  <div>{versions.find(v => v.id === selectedVersion)!.datasetVersionId || '-'}</div>
+                </div>
+                <div>
+                  <Box variant="awsui-key-label">Training Job ID</Box>
+                  <div>{versions.find(v => v.id === selectedVersion)!.trainingJobId || '-'}</div>
+                </div>
+              </ColumnLayout>
+            </Container>
+          )}
+        </SpaceBetween>
+      </div>
+    </Grid>
+  );
 
-          // Set AUC data
-          if (metricsData.auc_data) {
-            setAucData(metricsData.auc_data);
-          }
-          // } else {
-            // setAucData(generateSampleAUCData(metricsData.roc_auc));
-          // }
-        }
-      } catch (error) {
-        console.error('Error fetching model details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const renderVersionDetailsAndPipeline = (version: ModelVersion) => (
+    pipeline && pipeline.length > 0 && (
+      <div className={styles.pipelineGridContainer}>
+        <Grid
+          gridDefinition={[
+            { colspan: 8 },  // Pipeline section
+            { colspan: 4 }   // EDA Analysis section
+          ]}
+        >
+          <Container 
+            header={
+              <Header
+                variant="h2"
+                counter={`Winner of ${metrics?.total_pipelines || 100}+ evaluated pipelines`}
+                description="This pipeline achieved the highest cross-validated score during genetic optimization"
+              >
+                Model Pipeline
+              </Header>
+            }
+          >
+            <SpaceBetween size="l">
+              <ExpandableSection
+                headerText="View Alternative Pipelines"
+                variant="footer"
+              >
+                <Box color="text-status-inactive">
+                  Advanced feature: Compare and promote alternative pipelines from the genetic optimization process.
+                  Available with Enterprise subscription.
+                </Box>
+              </ExpandableSection>
 
-    fetchModelDetails();
-  }, [modelId]);
+              <div className={styles.pipelineContainer}>
+                {pipeline.map((step, index) => (
+                  <React.Fragment key={index}>
+                    <div className={styles.stepContainer}>
+                      <SpaceBetween size="s">
+                        <div className={styles.stepIcon}>
+                          <Icon name="settings" size="big" />
+                        </div>
+                        <div className={styles.className}>
+                          <Box variant="h3">{step.class_name}</Box>
+                          <div className={styles.module}>{step.module}</div>
+                        </div>
+                        <ExpandableSection headerText="Parameters">
+                          <pre className={styles.params}>
+                            {JSON.stringify(step.params, null, 2)}
+                          </pre>
+                        </ExpandableSection>
+                      </SpaceBetween>
+                    </div>
+                    {index < pipeline.length - 1 && (
+                      <div className={styles.arrow}>
+                        <Icon name="angle-right" size="big" />
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
 
-  if (loading) {
-    return <Spinner size="large" />;
-  }
+              {showPipelineInfo && (
+                <Alert
+                  type="info"
+                  dismissible={true}
+                  onDismiss={() => setShowPipelineInfo(false)}
+                >
+                  This pipeline was selected through genetic programming optimization, evaluating multiple generations 
+                  of pipeline configurations to find the most effective combination of preprocessing and modeling steps.
+                </Alert>
+              )}
+            </SpaceBetween>
+          </Container>
 
-  if (!model) {
-    return <div>Error loading model details. Please try again.</div>;
-  }
+          <Container
+            header={
+              <Header
+                variant="h2"
+                info={<Link>Learn more about EDA's analysis</Link>}
+              >
+                EDA's Model Analysis
+              </Header>
+            }
+          >
+            <div className={styles.edaAnalysisContainer}>
+              <div className={styles.edaContent}>
+                <SpaceBetween size="l">
+                  <Box variant="awsui-key-label">Pipeline Summary</Box>
+                  <Box color="text-status-inactive">
+                    Coming soon: AI-powered analysis of your model pipeline, explaining each step in plain English 
+                    and providing insights about the model's approach to solving your problem.
+                  </Box>
 
-  const formatNumber = (value: number | undefined) => {
-    return value !== undefined ? value.toFixed(4) : '-';
-  };
+                  <Box variant="awsui-key-label">Performance Insights</Box>
+                  <Box color="text-status-inactive">
+                    Coming soon: Natural language explanations of your model's performance metrics, 
+                    highlighting strengths and potential areas for improvement.
+                  </Box>
+                </SpaceBetween>
+              </div>
 
-  const aucChartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'ROC Curve',
-        font: {
-          size: 18
-        }
-      },
-    },
-    scales: {
-      x: {
-        type: 'linear',
-        title: {
-          display: true,
-          text: 'False Positive Rate',
-          font: {
-            size: 14
-          }
-        },
-        min: 0,
-        max: 1,
-      },
-      y: {
-        type: 'linear',
-        title: {
-          display: true,
-          text: 'True Positive Rate',
-          font: {
-            size: 14
-          }
-        },
-        min: 0,
-        max: 1,
-      },
-    },
+              <div className={styles.edaAlertContainer}>
+                {showEnterpriseAlert && (
+                  <Alert
+                    type="info"
+                    header="Enterprise Feature"
+                    dismissible={true}
+                    onDismiss={() => setShowEnterpriseAlert(false)}
+                  >
+                    Get detailed AI-powered analysis of your models with our Enterprise plan. 
+                    Our assistant EDA will help you understand complex ML concepts and make better decisions.
+                  </Alert>
+                )}
+              </div>
+            </div>
+          </Container>
+        </Grid>
+      </div>
+    )
+  );
+
+  const renderPerformanceSection = (version: ModelVersion) => (
+    metrics && version.status === 'TRAINING_COMPLETED' && (
+      <Container header={<Header variant="h2">Model Performance</Header>}>
+        <SpaceBetween size="l">
+          {/* Performance Summary */}
+          <ColumnLayout columns={3}>
+            <div>
+              <Box variant="awsui-key-label">Accuracy</Box>
+              <div>{metrics.accuracy?.toFixed(4) || '-'}</div>
+            </div>
+            <div>
+              <Box variant="awsui-key-label">ROC AUC</Box>
+              <div>{metrics.roc_auc?.toFixed(4) || '-'}</div>
+            </div>
+            <div>
+              <Box variant="awsui-key-label">CV Score</Box>
+              <div>{metrics.cv_score?.toFixed(4) || '-'}</div>
+            </div>
+          </ColumnLayout>
+
+          <ColumnLayout columns={2}>
+            <div className={styles.tablesContainer}>
+              {/* Confusion Matrix */}
+              {metrics.confusion_matrix && (
+                <div>
+                  <Header variant="h3">Confusion Matrix</Header>
+                  <Table
+                    columnDefinitions={[
+                      { id: 'label', header: 'Label', cell: (item) => item.label },
+                      { id: 'value', header: 'Value', cell: (item) => item.value },
+                    ]}
+                    items={[
+                      { label: 'True Negatives', value: metrics.confusion_matrix.true_negatives },
+                      { label: 'False Positives', value: metrics.confusion_matrix.false_positives },
+                      { label: 'False Negatives', value: metrics.confusion_matrix.false_negatives },
+                      { label: 'True Positives', value: metrics.confusion_matrix.true_positives },
+                    ]}
+                  />
+                </div>
+              )}
+
+              {/* Classification Report */}
+              {metrics.classification_report && (
+                <div>
+                  <Header variant="h3">Classification Report</Header>
+                  <Table
+                    columnDefinitions={[
+                      { id: 'metric', header: 'Class', cell: (item) => item.metric },
+                      { id: 'precision', header: 'Precision', cell: (item) => item.precision?.toFixed(4) || '-' },
+                      { id: 'recall', header: 'Recall', cell: (item) => item.recall?.toFixed(4) || '-' },
+                      { id: 'f1_score', header: 'F1 Score', cell: (item) => item.f1_score?.toFixed(4) || '-' },
+                      { id: 'support', header: 'Support', cell: (item) => item.support || '-' },
+                    ]}
+                    items={Object.entries(metrics.classification_report).map(([key, value]) => ({
+                      metric: key,
+                      ...value
+                    }))}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* AUC Chart */}
+            <div className={styles.chartContainer}>
+              {metrics.auc_data && renderAUCChart()}
+            </div>
+          </ColumnLayout>
+        </SpaceBetween>
+      </Container>
+    )
+  );
+
+  const handleCreateNewVersion = () => {
+    navigate('/models/create', { state: { selectedModelId: modelId } });
   };
 
   const renderAUCChart = () => {
-    if (!metrics || !metrics.auc_data || metrics.roc_auc === null) {
-      return <div>AUC data is not available for this model.</div>;
-    }
+    if (!metrics?.auc_data) return null;
 
-    const aucChartData = {
+    const data = {
       datasets: [
         {
           label: 'ROC Curve',
-          data: metrics.auc_data.fpr.map((fpr, index) => ({ x: fpr, y: metrics.auc_data.tpr[index] })),
+          data: metrics.auc_data.fpr.map((fpr, index) => ({ 
+            x: fpr, 
+            y: metrics.auc_data.tpr[index] 
+          })),
           borderColor: 'rgb(75, 192, 192)',
           backgroundColor: 'rgba(75, 192, 192, 0.2)',
           tension: 0.1,
@@ -235,150 +537,97 @@ const ModelDetails: React.FC = () => {
       ],
     };
 
-    return (
-      <div style={{ height: '100%', minHeight: '300px', width: '100%' }}>
-        <Line options={aucChartOptions} data={aucChartData} />
-      </div>
-    );
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
+        title: {
+          display: true,
+          text: 'ROC Curve',
+          font: { size: 18 }
+        },
+      },
+      scales: {
+        x: {
+          type: 'linear' as const,
+          title: {
+            display: true,
+            text: 'False Positive Rate',
+            font: { size: 14 }
+          },
+          min: 0,
+          max: 1,
+        },
+        y: {
+          type: 'linear' as const,
+          title: {
+            display: true,
+            text: 'True Positive Rate',
+            font: { size: 14 }
+          },
+          min: 0,
+          max: 1,
+        },
+      },
+    };
+
+    return <Line data={data} options={options} />;
   };
 
-  const renderModelStatus = () => {
-    let type: "success" | "error" | "warning" | "info" | "pending" = "info";
-    switch(model.status) {
-      case 'TRAINING_COMPLETED':
-        type = "success";
-        break;
-      case 'TRAINING_FAILED':
-        type = "error";
-        break;
-      case 'TRAINING':
-        type = "pending";
-        break;
-      case 'SUBMITTED':
-        type = "pending";
-        break;
-      default:
-        type = "info";
-    }
-    return <StatusIndicator type={type}>{model.status}</StatusIndicator>;
-  };
+  if (loading) {
+    return <Spinner size="large" />;
+  }
+
+  if (!model) {
+    return <Box>Model not found</Box>;
+  }
 
   return (
     <SpaceBetween size="l">
-      <Header variant="h1">Model Details: {model.name}</Header>
-      
-      <Container header={<Header variant="h2">Model Information</Header>}>
-        <ColumnLayout columns={3} variant="text-grid">
-          <div>
-            <Header variant="h3">Name</Header>
-            <p>{model.name}</p>
-          </div>
-          <div>
-            <Header variant="h3">Description</Header>
-            <p>{model.description}</p>
-          </div>
-          <div>
-            <Header variant="h3">Owner</Header>
-            <p>{model.owner}</p>
-          </div>
-          <div>
-            <Header variant="h3">Version</Header>
-            <p>{model.version}</p>
-          </div>
-          <div>
-            <Header variant="h3">Target Feature</Header>
-            <p>{model.targetFeature}</p>
-          </div>
-          <div>
-            <Header variant="h3">Status</Header>
-            {renderModelStatus()}
-          </div>
-        </ColumnLayout>
-      </Container>
-      
-      {model.status === 'TRAINING_COMPLETED' && metrics && (
-        <>
-          <Container header={<Header variant="h2">Model Performance</Header>}>
-            <ColumnLayout columns={2} variant="text-grid">
+      <Header
+        variant="h1"
+        actions={
+          <Button variant="primary" onClick={handleCreateNewVersion}>
+            Create New Version
+          </Button>
+        }
+      >
+        {model.name}
+      </Header>
+
+      <Tabs
+        activeTabId={activeTab}
+        onChange={({ detail }) => setActiveTab(detail.activeTabId)}
+        tabs={[
+          {
+            id: 'details',
+            label: 'Details',
+            content: (
               <SpaceBetween size="l">
-                <div>
-                  <Header variant="h3">Key Metrics</Header>
-                  <ColumnLayout columns={2} variant="text-grid">
-                    <div>
-                      <Header variant="h3" className="sub-header">Accuracy</Header>
-                      <p>{formatNumber(metrics.accuracy)}</p>
-                    </div>
-                    <div>
-                      <Header variant="h3" className="sub-header">ROC AUC</Header>
-                      <p>{metrics.roc_auc !== null ? formatNumber(metrics.roc_auc) : '-'}</p>
-                    </div>
-                    <div>
-                      <Header variant="h3" className="sub-header">CV Score</Header>
-                      <p>{formatNumber(metrics.cv_score)}</p>
-                    </div>
-                  </ColumnLayout>
-                </div>
-                <div>
-                  <Header variant="h3">Confusion Matrix</Header>
-                  <Table
-                    columnDefinitions={[
-                      { id: 'label', header: 'Label', cell: (item) => item.label },
-                      { id: 'value', header: 'Value', cell: (item) => item.value },
-                    ]}
-                    items={[
-                      { label: 'True Negatives', value: metrics.confusion_matrix?.true_negatives ?? '-' },
-                      { label: 'False Positives', value: metrics.confusion_matrix?.false_positives ?? '-' },
-                      { label: 'False Negatives', value: metrics.confusion_matrix?.false_negatives ?? '-' },
-                      { label: 'True Positives', value: metrics.confusion_matrix?.true_positives ?? '-' },
-                    ]}
-                  />
-                </div>
+                {renderOverviewAndVersions()}
+                {selectedVersion && (
+                  <>
+                    {renderVersionDetailsAndPipeline(versions.find(v => v.id === selectedVersion)!)}
+                    {renderPerformanceSection(versions.find(v => v.id === selectedVersion)!)}
+                  </>
+                )}
               </SpaceBetween>
-              <div style={{ height: '400px', width: '100%' }}>
-                {metrics.auc_data ? renderAUCChart() : <div>ROC Curve is not available for this model.</div>}
-              </div>
-            </ColumnLayout>
-          </Container>
-          
-          <Container header={<Header variant="h2">Classification Report</Header>}>
-            <Table
-              columnDefinitions={[
-                { id: 'metric', header: 'Metric', cell: (item) => item.metric },
-                { id: 'precision', header: 'Precision', cell: (item) => formatNumber(item.precision) },
-                { id: 'recall', header: 'Recall', cell: (item) => formatNumber(item.recall) },
-                { id: 'f1_score', header: 'F1 Score', cell: (item) => formatNumber(item.f1_score) },
-                { id: 'support', header: 'Support', cell: (item) => item.support },
-              ]}
-              items={Object.entries(metrics.classification_report || {}).map(([key, value]) => ({
-                metric: key,
-                precision: value?.precision,
-                recall: value?.recall,
-                f1_score: value?.f1_score,
-                support: value?.support,
-              }))}
-            />
-          </Container>
-          
-          <Container header={<Header variant="h2">Pipeline Steps</Header>}>
-            {pipeline.map((step, index) => (
-              <Container key={index} header={<Header variant="h3">{step.step_name}</Header>}>
-                <ColumnLayout columns={2} variant="text-grid">
-                  <div>
-                    <Header variant="h3" className="sub-header">Class</Header>
-                    <p>{step.class_name}</p>
-                  </div>
-                  <div>
-                    <Header variant="h3" className="sub-header">Module</Header>
-                    <p>{step.module}</p>
-                  </div>
-                </ColumnLayout>
-                <Header variant="h3" className="sub-header">Parameters</Header>
-                <pre style={{ maxHeight: '200px', overflowY: 'auto' }}>{JSON.stringify(step.params, null, 2)}</pre>
+            )
+          },
+          {
+            id: 'monitoring',
+            label: 'Monitoring',
+            content: (
+              <Container>
+                <p>Model monitoring content coming soon...</p>
               </Container>
-            ))}
-          </Container>
-        </>
-      )}
+            )
+          }
+        ]}
+      />
     </SpaceBetween>
   );
 };

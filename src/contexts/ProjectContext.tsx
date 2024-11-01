@@ -15,7 +15,8 @@ import { StorageManager } from '@aws-amplify/ui-react-storage';
 import Papa from 'papaparse';
 import type { Schema } from "../../../../amplify/data/resource";
 import { ProjectContext } from '../../../contexts/ProjectContext';
-import amplify_config from "../../../../amplify_outputs.json";
+import amplify_config from "../../../amplify_outputs.json";
+
 
 const client = generateClient<Schema>();
 
@@ -73,7 +74,7 @@ const CreateDataset: React.FC = () => {
       console.log('Creating dataset with:', {
         name: datasetName,
         version: 1,
-        s3Key: fileUrl,
+        fileUrl: fileUrl,
         uploadDate: new Date().toISOString(),
         size: file.size,
         rowCount: parsedData.length,
@@ -84,7 +85,7 @@ const CreateDataset: React.FC = () => {
       const newDataset = await client.models.Dataset.create({
         name: datasetName,
         version: 1,
-        s3Key: fileUrl,
+        fileUrl: fileUrl,
         uploadDate: new Date().toISOString(),
         size: file.size,
         rowCount: parsedData.length,
