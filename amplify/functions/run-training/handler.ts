@@ -2,7 +2,6 @@ import { Batch } from 'aws-sdk';
 import {
   BATCH_JOB_DEFINITION,
   BATCH_JOB_QUEUE,
-  TRAINING_OUTPUT_BUCKET
 } from '../../../Config';
 import type { Schema } from '../../data/resource';
 
@@ -20,7 +19,6 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
     jobDefinition: BATCH_JOB_DEFINITION,
     containerOverrides: {
       environment: [
-        { name: 'BUCKET', value: TRAINING_OUTPUT_BUCKET },
         { name: 'FILE', value: fileUrl || '' },
         { name: 'TARGET', value: targetFeature || '' },
         { name: 'USER', value: submittedBy || '' },
@@ -47,7 +45,7 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
       status: 'SUBMITTED',
     };
   } catch (error) {
-    console.error(error);
+    console.error('Training error:', error);
     throw new Error(`Failed to submit Batch job: ${error}`);
   }
 };

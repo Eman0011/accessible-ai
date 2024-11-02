@@ -1,3 +1,8 @@
+import configureLogging from './utils/LogConfig';
+
+// Configure logging before any other imports
+configureLogging('main');
+
 import { Amplify } from "aws-amplify";
 import React from "react";
 import ReactDOM from "react-dom/client";

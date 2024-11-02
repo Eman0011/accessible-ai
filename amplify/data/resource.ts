@@ -232,11 +232,13 @@ const schema = a.schema({
   runModelInference: a
     .query()
     .arguments({
-      modelPath: a.string(),
+      modelVersionId: a.string().required(),
+      targetFeature: a.string().required(),
+      basePath: a.string().required(),
+      submittedBy: a.string().required(),
       input: a.json(),
       inputDataPath: a.string(),
       outputDataPath: a.string(),
-      modelVersionId: a.string(),
     })
     .returns(a.json())
     .handler(a.handler.function(runModelInference))
@@ -247,12 +249,11 @@ const schema = a.schema({
     .model({
       id: a.id(),
       name: a.string().required(),
-      description: a.string(),
+      owner: a.string().required(),
+      users: a.hasMany('User', 'organizationId'),
       createdAt: a.datetime(),
       updatedAt: a.datetime(),
-      users: a.hasMany('User', 'organizationId'),
       projects: a.hasMany('Project', 'organizationId'),
-      oranizationInvites: a.hasMany('OrganizationInvite', 'organizationId')
     })
     .authorization((allow) => [allow.authenticated()]),
 
@@ -264,10 +265,7 @@ const schema = a.schema({
       email: a.string().required(),
       organizationId: a.string().required(),
       organization: a.belongsTo('Organization', 'organizationId'),
-      role: a.string().required(), // 'admin' | 'member'
-      title: a.string(),
-      level: a.string(), // 'junior' | 'senior' | 'manager'
-      phoneNumber: a.string(),
+      role: a.string().required(),
       createdAt: a.datetime(),
       updatedAt: a.datetime(),
     })
@@ -278,11 +276,8 @@ const schema = a.schema({
     .model({
       id: a.id(),
       organizationId: a.string().required(),
-      organization: a.belongsTo('Organization', 'organizationId'),
       email: a.string().required(),
-      status: a.string().required(), // 'pending' | 'accepted' | 'rejected'
-      invitedBy: a.string().required(),
-      expiresAt: a.datetime().required(),
+      status: a.string().required(),
       createdAt: a.datetime(),
       updatedAt: a.datetime(),
     })

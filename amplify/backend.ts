@@ -64,3 +64,14 @@ authenticatedRole.addToPrincipalPolicy(
     resources: ['*']
   })
 );
+
+// Add a separate policy for run-inference lambda
+const runInferenceLambda = backend.runModelInference.resources.lambda;
+
+runInferenceLambda.addToRolePolicy(new iam.PolicyStatement({
+  sid: "AllowRunLambda",
+  actions: [
+    "lambda:InvokeFunction",
+  ],
+  resources: ["*"],
+}));

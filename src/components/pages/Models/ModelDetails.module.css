@@ -1,129 +1,412 @@
-.versionsContainer {
-  height: 300px;
-  overflow-y: auto;
-  padding: 5px;
-}
-
-.overviewDetailsContainer {
-  height: 400px;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Container Layouts */
 .pipelineGridContainer {
-  margin-top: -40px;
+  width: 100%;
 }
 
 .pipelineContainer {
   display: flex;
+  align-items: flex-start;
+  padding: 16px 0;
+  gap: 24px;
   overflow-x: auto;
-  padding: 20px 0;
-  gap: 20px;
-  min-height: 300px;
-  flex: 1;
+  flex-wrap: nowrap;
+  width: 100%;
+  
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
 }
 
-.edaAnalysisContainer {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 445px;
-  overflow-y: auto;
-}
-
-.edaContent {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding-bottom: 10px;
-}
-
-.edaAlertContainer {
-  flex: 0 0 auto;
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid #eee;
-}
-
-.performanceContainer {
-  height: 600px;
-  overflow-y: auto;
-}
-
-.metricsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  min-height: 500px;
-}
-
-.metricsColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.chartContainer {
-  height: 100%;
+/* Pipeline Header and Badge */
+.pipelineHeader {
   position: relative;
-  display: flex;
+}
+
+.topPipelineBadge {
+  position: absolute;
+  top: -15px;
+  right: -20px;
+  display: inline-flex;
   flex-direction: column;
-}
-
-.chartContent {
-  flex-grow: 1;
-  min-height: 450px;
-}
-
-.stepContainer {
-  min-width: 220px;
-  padding: 15px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background-color: #ffffff;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.arrow {
-  color: #6b7280;
-  font-size: 24px;
-  margin: 0 10px;
-  display: flex;
   align-items: center;
-  align-self: center;
-  height: 100%;
+  gap: 8px;
+  color: #DAA520;
+  font-weight: 600;
+  padding: 8px;
+  background: var(--color-background-container-header);
+  border-radius: 8px;
+  box-shadow: 
+    0 2px 5px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.topPipelineIcon {
+  border-radius: 40px;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
+}
+
+/* Pipeline Step Cards */
+.stepCard {
+  width: 220px;
+  min-width: 220px;
+  flex-shrink: 0;
+  margin-bottom: 16px;
+  background: var(--color-background-container-content);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border-container-default);
 }
 
 .stepIcon {
-  margin-bottom: 10px;
+  width: 100%;
+  padding: 24px;
+  aspect-ratio: 1;
+  background: var(--color-background-container-header);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.className {
-  margin-bottom: 8px;
+.stepImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
-.module {
-  font-size: 13px;
-  color: #6b7280;
+.stepDetails {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stepName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-heading);
+  word-wrap: break-word;
+}
+
+.stepModule {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Parameters Section */
+.stepParams {
+  margin-top: 8px;
+  border-top: 1px solid var(--color-border-divider-default);
+}
+
+.stepParams pre {
+  font-size: 11px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  margin: 0;
+  background: var(--color-background-container-header);
+  border-radius: 4px;
+}
+
+/* Alternative Pipelines */
+.alternativePipelines {
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border-divider-default);
+}
+
+/* Arrow Navigation */
+.arrow {
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  padding-top: 80px;
+}
+
+/* EDA Analysis Section */
+.edaAnalysisContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.edaContent {
+  flex: 1;
+}
+
+.edaAlertContainer {
+  margin-top: auto;
+}
+
+/* Performance Metrics Layout */
+.performanceContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.chartContainer {
+  padding: 16px;
+  width: 100%;
+  max-width: 800px;
+  height: 450px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+.versionsContainer {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.versionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.versionCard {
+  background: var(--color-background-container-content);
+  border: 2px solid var(--color-border-container-default);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.versionCard:hover {
+  border-color: var(--color-border-item-focused);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.selectedVersion {
+  border-color: var(--color-border-item-selected);
+  background: var(--color-background-item-selected);
+}
+
+.versionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.versionNumber {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.versionDetails {
+  font-size: 14px;
+  color: var(--color-text-body-secondary);
+}
+
+/* Main layout */
+.mainContentGrid {
+  display: grid;
+  grid-template-columns: 35% 65%;
+  gap: 24px;
+  width: 100%;
+  min-height: 0;
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+}
+
+.rightColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: visible;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Add media query for smaller screens */
+@media (max-width: 1200px) {
+  .mainContentGrid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .leftColumn {
+    width: 100%;
+  }
+}
+
+/* Version cards */
+.versionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .versionsGrid {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .versionCard {
+    width: 100%;
+  }
+}
+
+/* EDA container */
+.edaContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+}
+
+@media (max-width: 1200px) {
+  .edaContainer {
+    height: auto;
+  }
+}
+
+.edaContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Pipeline section */
+.pipelineSection {
+  width: 100%;
+  margin-top: 0;
+}
+
+.performanceContainer {
+  height: 100%;
+}
+
+.performanceContainer [data-awsui-column-layout] {
+  text-align: center;
+}
+
+.performanceContainer [role="cell"] {
+  text-align: center;
+}
+
+.performanceContainer [role="columnheader"] {
+  text-align: center;
+}
+
+.versionDetailsCard {
+  background: var(--color-background-container-content);
+  border: 1px solid var(--color-border-divider-default);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+/* Add to your existing styles */
+.modelOverview {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-border-divider-default);
+}
+
+/* Add media query for metrics grid */
+@media (max-width: 1400px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .metricsTablesColumn,
+  .metricsChartColumn {
+    width: 100%;
+  }
+
+  .chartContainer {
+    min-height: 400px;
+  }
+}
+
+/* Update metrics layout for center alignment */
+.metricsTablesColumn {
+  display: grid;
+  grid-template-columns: 35% 65%;
+  gap: 24px;
+  text-align: center;
+  width: 100%;
+}
+
+/* Create a responsive grid for all performance metrics */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 100%;
+  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Style for individual metric containers */
+.metricContainer {
+  padding: 8px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: none;
+}
+
+.metricContainer > div:not([data-awsui-box-variant="awsui-key-label"]) {
+  font-size: 1.2em;
+  font-weight: 500;
   margin-top: 4px;
 }
 
-.params {
-  font-size: 13px;
-  line-height: 1.5;
-  font-family: Monaco, monospace;
-  background-color: #f9fafb;
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
+.metricContainer > div {
+  width: 100%;
+  text-align: center;
 }
 
-.pipelineAndEdaWrapper {
-  display: flex;
-  flex-direction: row;
-  min-height: 445px;
-  height: 100%;
-  gap: 20px;
+.metricContainer [data-awsui-box-variant="awsui-key-label"] {
+  width: 100%;
+  text-align: center;
+}
+
+/* Add responsive behavior for smaller screens */
+@media (max-width: 1200px) {
+  .metricsTablesColumn {
+    grid-template-columns: 1fr;
+  }
 }
  

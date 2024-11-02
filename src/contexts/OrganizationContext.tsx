@@ -19,9 +19,8 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  const checkPermission = (permission: string): boolean => {
+  const checkPermission = (_permission: string): boolean => {
     // Implement permission checking logic here
-    // This could check against a list of permissions for the user's role
     return true;
   };
 

@@ -19,6 +19,7 @@ export interface Dataset {
   createdAt?: string | null;
   updatedAt?: string | null;
   datasetVersions?: DatasetVersion[];
+  s3Key?: string;
 }
 
 export interface DatasetVersion {

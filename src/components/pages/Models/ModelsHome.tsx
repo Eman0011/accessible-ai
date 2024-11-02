@@ -14,7 +14,6 @@ import { useNavigate } from 'react-router-dom';
 import type { Schema } from '../../../../amplify/data/resource';
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { Model, ModelVersion } from '../../../types/models';
-import { Link as RouterLink } from 'react-router-dom';
 
 const client = generateClient<Schema>();
 
@@ -39,7 +38,15 @@ const ModelsHome: React.FC = () => {
         filter: { projectId: { eq: currentProject?.id } }
       });
 
-      const modelsWithVersions = fetchedModels as Model[];
+      const modelsWithVersions: Model[] = fetchedModels.map(m => ({
+        id: m.id || '',
+        name: m.name || '',
+        description: m.description || '',
+        owner: m.owner || '',
+        projectId: m.projectId || '',
+        createdAt: m.createdAt || null,
+        updatedAt: m.updatedAt || null
+      }));
       const versionsMap: { [key: string]: ModelVersion[] } = {};
 
       // Fetch versions for each model
@@ -48,7 +55,19 @@ const ModelsHome: React.FC = () => {
           const { data: versions } = await client.models.ModelVersion.list({
             filter: { modelId: { eq: model.id } }
           });
-          versionsMap[model.id] = versions as ModelVersion[];
+          versionsMap[model.id] = versions.map(v => ({
+            id: v.id || '',
+            modelId: v.modelId,
+            version: v.version,
+            status: v.status,
+            targetFeature: v.targetFeature,
+            fileUrl: v.fileUrl,
+            s3OutputPath: v.s3OutputPath,
+            datasetVersionId: v.datasetVersionId,
+            createdAt: v.createdAt || null,
+            updatedAt: v.updatedAt || null,
+            performanceMetrics: v.performanceMetrics || {}
+          })) as ModelVersion[];
         })
       );
 
@@ -63,8 +82,8 @@ const ModelsHome: React.FC = () => {
 
   const getLatestVersion = (modelId: string): ModelVersion | undefined => {
     const versions = modelVersions[modelId] || [];
-    return versions.reduce((latest, current) => 
-      !latest || current.version > latest.version ? current : latest
+    return versions.reduce<ModelVersion | undefined>((latest, current) => 
+      !latest || (current.version > (latest?.version || 0)) ? current : latest
     , undefined);
   };
 

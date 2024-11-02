@@ -1,0 +1,20 @@
+.form-container {
+    padding: 20px;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-heading);
+    margin-bottom: 8px;
+}
+
+.divider {
+    height: 1px;
+    background: var(--color-border-divider-default);
+    margin: 20px 0;
+}
+
+.preview-container {
+    margin-top: 16px;
+} 
