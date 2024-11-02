@@ -5,10 +5,20 @@ export function generateStoragePath(params: {
   projectId: string;
   resourceType: 'datasets' | 'models';
   resourceId: string;
+  version?: number;
   fileName?: string;
 }) {
-  const { userId, projectId, resourceType, resourceId, fileName } = params;
-  const basePath = `users/${userId}/projects/${projectId}/${resourceType}/${resourceId}`;
+  const { userId, projectId, resourceType, resourceId, version, fileName } = params;
+  
+  // Build the base path
+  let basePath = `users/${userId}/projects/${projectId}/${resourceType}/${resourceId}`;
+  
+  // Add version if provided
+  if (version !== undefined) {
+    basePath = `${basePath}/v${version}`;
+  }
+  
+  // Add filename if provided
   return fileName ? `${basePath}/${fileName}` : basePath;
 }
 

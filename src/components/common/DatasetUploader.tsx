@@ -170,7 +170,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         id: datasetId,
         name: datasetName,
         description: datasetDescription,
-        owner: userInfo?.userName || 'unknown_user',
+        owner: userInfo?.username || 'unknown_user',
         ownerId: userInfo?.userId || 'unknown_user',
         projectId: projectId,
         createdAt: new Date().toISOString(),
@@ -330,7 +330,8 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         userId: userInfo.userId,
         projectId,
         resourceType: 'datasets',
-        resourceId: datasetId
+        resourceId: datasetId,
+        version: currentVersion + 1
       });
       
       if (validateUserAccess(userInfo, userInfo.userId)) {

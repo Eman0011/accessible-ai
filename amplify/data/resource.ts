@@ -217,12 +217,11 @@ const schema = a.schema({
   runTrainingJob: a
     .query()
     .arguments({
-      fileUrl: a.string(),
-      targetFeature: a.string(),
-      submittedBy: a.string(),
-      modelVersionId: a.string(),
-      projectId: a.string(),
-      outputPath: a.string(),
+      fileUrl: a.string().required(),
+      targetFeature: a.string().required(),
+      submittedBy: a.string().required(),
+      basePath: a.string().required(),
+      modelVersionId: a.string().required(),
       trainingConfig: a.json(),
     })
     .returns(a.json())

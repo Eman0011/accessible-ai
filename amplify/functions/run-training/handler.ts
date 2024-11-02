@@ -7,32 +7,32 @@ import {
 import type { Schema } from '../../data/resource';
 
 export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event) => {
-  // arguments typed from `.arguments()`
-  const { fileUrl, targetFeature, submittedBy, modelVersionId, projectId } = event.arguments;
+  const { fileUrl, targetFeature, submittedBy, basePath, modelVersionId } = event.arguments;
 
   console.log("Submitting Training Job:")
   const batch = new Batch();
-
+  const stage = process.env.NODE_ENV === 'development' ? 'dev' : 'prod';
+  console.log('STAGE:', stage);
+  
   const params = {
-    jobName: `training-job-${submittedBy}-${Date.now()}`,  // Job name should be unique
-    jobQueue: BATCH_JOB_QUEUE,                             // ARN of your Batch job queue
-    jobDefinition: BATCH_JOB_DEFINITION,                   // ARN of your Batch job definition
+    jobName: `training-job-${submittedBy}-${Date.now()}`,
+    jobQueue: BATCH_JOB_QUEUE,
+    jobDefinition: BATCH_JOB_DEFINITION,
     containerOverrides: {
       environment: [
         { name: 'BUCKET', value: TRAINING_OUTPUT_BUCKET },
         { name: 'FILE', value: fileUrl || '' },
         { name: 'TARGET', value: targetFeature || '' },
         { name: 'USER', value: submittedBy || '' },
-        { name: 'MODEL_ID', value: modelVersionId || '' },
-        { name: 'PROJECT_ID', value: projectId || '' },
-        { name: 'STAGE', value: 'prod' }
+        { name: 'BASE_PATH', value: basePath },
+        { name: 'MODEL_VERSION_ID', value: modelVersionId },
+        { name: 'STAGE', value: "dev" }
       ],
     },
   };
   console.log(params)
 
   try {
-    // Submit the Batch job
     const submitJob = await batch.submitJob(params).promise();
     console.log("Response:")
     console.log(submitJob)
@@ -43,7 +43,7 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
       targetFeature,
       submittedBy,
       jobId,
-      projectId,
+      basePath,
       status: 'SUBMITTED',
     };
   } catch (error) {

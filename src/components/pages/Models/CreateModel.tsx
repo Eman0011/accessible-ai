@@ -4,13 +4,13 @@ import Papa from 'papaparse';
 import React, { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
+import amplify_config from '../../../amplify_outputs.json';
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { useUser } from '../../../contexts/UserContext';
 import { Dataset, DatasetVersion, Model, TrainingJobResult } from '../../../types/models';
 import { generateStoragePath } from '../../../utils/storageUtils';
 import DatasetUploader from '../../common/DatasetUploader';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
-import amplify_config from '../../../amplify_outputs.json';
 
 import {
   Button,
@@ -28,7 +28,7 @@ const client = generateClient<Schema>();
 
 const CreateModel: React.FC = () => {
   const { currentProject } = useContext(ProjectContext);
-  const { user, isLoading: isUserLoading } = useUser();
+  const { userInfo: userInfo, isLoading: isUserLoading } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -277,7 +277,7 @@ const CreateModel: React.FC = () => {
   };
 
   async function createNewModelVersion(modelId: string) {
-    if (!user?.username || !user?.userId) {
+    if (!userInfo?.username || !userInfo?.userId) {
       throw new Error("User information not loaded");
     }
 
@@ -301,10 +301,11 @@ const CreateModel: React.FC = () => {
         : 1;
 
       const s3OutputPath = generateStoragePath({
-        userId: user.userId,
+        userId: userInfo.userId,
         projectId: currentProject?.id || '',
         resourceType: 'models',
         resourceId: modelId,
+        version: newVersion
       });
 
       const fileUrl = `s3://${amplify_config.storage.bucket_name}/${datasetVersion.s3Key}`;
@@ -333,7 +334,7 @@ const CreateModel: React.FC = () => {
       const { data: newModel } = await client.models.Model.create({
         name: modelName,
         description: 'Initial model creation', // Add description field
-        owner: user?.username || 'unknown_user',
+        owner: userInfo?.username || 'unknown_user',
         projectId: currentProject?.id || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -351,7 +352,7 @@ const CreateModel: React.FC = () => {
       return;
     }
 
-    if (!user?.username) {
+    if (!userInfo?.username || !userInfo?.userId) {
       console.error('User information not loaded');
       return;
     }
@@ -389,14 +390,13 @@ const CreateModel: React.FC = () => {
 
       if (newModelVersion?.id) {
         try {
-          console.log('Submitting training job with user:', user.username);
+          console.log('Submitting training job for user:', userInfo.username);
           const { data: result } = await client.queries.runTrainingJob({
-            submittedBy: user.username,
+            submittedBy: userInfo.username,
             fileUrl: newModelVersion.fileUrl,
             targetFeature: selectedColumn,
+            basePath: newModelVersion.s3OutputPath,
             modelVersionId: newModelVersion.id,
-            projectId: currentProject.id,
-            outputPath: newModelVersion.s3OutputPath,
           });
 
           if (result) {
@@ -419,7 +419,8 @@ const CreateModel: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error in model creation process:', error);
+      console.error('Error in model creation:', error);
+      setError('Failed to create model. Please try again.');
     } finally {
       setIsModelCreationSubmitted(false);
     }
@@ -432,7 +433,7 @@ const CreateModel: React.FC = () => {
   };
 
   const createNewModel = async () => {
-    if (!user?.username) {
+    if (!userInfo?.username) {
       console.error('User information not loaded');
       return;
     }
@@ -441,7 +442,7 @@ const CreateModel: React.FC = () => {
       const { data: newModel, errors } = await client.models.Model.create({
         name: newModelName,
         description: newModelDescription,
-        owner: user.username,
+        owner: userInfo.username,
         projectId: currentProject?.id || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

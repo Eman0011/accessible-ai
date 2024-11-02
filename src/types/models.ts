@@ -88,7 +88,7 @@ export interface TrainingJobResult {
 
 export interface UserInfo {
   userId: string;
-  userName: string;
+  username: string;
   email: string;
   organizationId: string;
   role: UserRole;

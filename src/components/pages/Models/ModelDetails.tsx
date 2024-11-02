@@ -32,7 +32,9 @@ import { Line } from 'react-chartjs-2';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
 import { TRAINING_OUTPUT_BUCKET } from '../../../../Config';
-import { Model, ModelVersion } from '../../../types/models';
+import updateModelVersionStatus from '../../../../update_model_status';
+import { Model, ModelStatus, ModelVersion } from '../../../types/models';
+import { globalS3Cache } from '../../../utils/CacheUtils';
 import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import styles from './ModelDetails.module.css';
 
@@ -95,26 +97,22 @@ const ModelDetails: React.FC = () => {
   const [pipeline, setPipeline] = useState<PipelineStep[]>([]);
   const [showPipelineInfo, setShowPipelineInfo] = useState(true);
   const [showEnterpriseAlert, setShowEnterpriseAlert] = useState(true);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
+  let count = 1;
 
   useEffect(() => {
     if (modelId) {
       fetchModelDetails();
+      if (count == 0) {
+        updateModelVersionStatus(9)
+        count++;
+      }
     }
   }, [modelId]);
 
-  const getModelOutput = async (key: string) => {
-    return await getS3JSONFromBucket<any>(key, TRAINING_OUTPUT_BUCKET);
-  };
-
   const fetchModelOutputData = async (version: ModelVersion) => {
     try {
-      console.log('Model Version Data:', {
-        version,
-        modelUrl: version.modelUrl || '',
-        s3OutputPath: version.s3OutputPath || '',
-        fileUrl: version.fileUrl || ''
-      });
-
       let basePath = version.s3OutputPath;
 
       if (!basePath) {
@@ -122,35 +120,38 @@ const ModelDetails: React.FC = () => {
         return;
       }
 
-      // Construct the full paths
       const metricsPath = `${basePath}/best_model_metrics.json`;
       const pipelinePath = `${basePath}/best_model_pipeline.json`;
       
-      console.log('Attempting to fetch from paths:', {
-        metricsPath,
-        pipelinePath,
-        bucket: TRAINING_OUTPUT_BUCKET
-      });
+      // Reset error states
+      setMetricsError(null);
+      setPipelineError(null);
 
-      // Fetch both files using the S3 client
-      const [metricsData, pipelineData] = await Promise.all([
-        getModelOutput(metricsPath),
-        getModelOutput(pipelinePath)
-      ]);
-      
-      console.log('Successfully fetched model output data:', {
-        metrics: metricsData,
-        pipeline: pipelineData
-      });
+      // Fetch metrics and pipeline separately to handle partial failures
+      try {
+        const metricsData = await getS3JSONFromBucket<ModelMetrics>(metricsPath, TRAINING_OUTPUT_BUCKET);
+        setMetrics(metricsData);
+      } catch (metricsError) {
+        console.error('Error fetching metrics:', metricsError);
+        setMetricsError('Failed to load model metrics');
+        setMetrics(null);
+      }
 
-      setMetrics(metricsData);
-      setPipeline(pipelineData);
-      setModelOutputData({
-        metrics: metricsData,
-        pipeline: pipelineData
-      });
+      try {
+        const pipelineData = await getS3JSONFromBucket<PipelineStep[]>(pipelinePath, TRAINING_OUTPUT_BUCKET);
+        setPipeline(pipelineData);
+      } catch (pipelineError) {
+        console.error('Error fetching pipeline:', pipelineError);
+        setPipelineError('Failed to load model pipeline');
+        setPipeline([]);
+      }
+
     } catch (error) {
-      console.error('Error fetching model output data:', error);
+      console.error('Error in fetchModelOutputData:', error);
+      setMetricsError('Failed to load model data');
+      setPipelineError('Failed to load model data');
+      setMetrics(null);
+      setPipeline([]);
     }
   };
 
@@ -188,7 +189,7 @@ const ModelDetails: React.FC = () => {
         status: v.status as ModelStatus || 'DRAFT',
         targetFeature: v.targetFeature || '',
         fileUrl: v.fileUrl || '',
-        modelUrl: v.modelUrl || '',
+        s3OutputPath: v.s3OutputPath || '',
         trainingJobId: v.trainingJobId || '',
         performanceMetrics: {},
         createdAt: v.createdAt || null,
@@ -233,6 +234,20 @@ const ModelDetails: React.FC = () => {
   useEffect(() => {
     const selectedModelVersion = versions.find(v => v.id === selectedVersion);
     if (selectedModelVersion?.status === 'TRAINING_COMPLETED') {
+      // Clear existing metrics and pipeline data
+      setMetrics(null);
+      setPipeline([]);
+      setModelOutputData(null);
+      
+      // Clear cache for the previous version's data if it exists
+      if (selectedModelVersion.s3OutputPath) {
+        const metricsPath = `${selectedModelVersion.s3OutputPath}/best_model_metrics.json`;
+        const pipelinePath = `${selectedModelVersion.s3OutputPath}/best_model_pipeline.json`;
+        const metricsCacheKey = `${TRAINING_OUTPUT_BUCKET}/${metricsPath}`;
+        const pipelineCacheKey = `${TRAINING_OUTPUT_BUCKET}/${pipelinePath}`;
+        globalS3Cache.clear(); // Clear entire cache when switching versions
+      }
+      
       fetchModelOutputData(selectedModelVersion);
     }
   }, [selectedVersion, versions]);
@@ -317,36 +332,26 @@ const ModelDetails: React.FC = () => {
   );
 
   const renderVersionDetailsAndPipeline = (version: ModelVersion) => (
-    pipeline && pipeline.length > 0 && (
+    version.status === 'TRAINING_COMPLETED' && (
       <div className={styles.pipelineGridContainer}>
         <Grid
           gridDefinition={[
-            { colspan: 8 },  // Pipeline section
-            { colspan: 4 }   // EDA Analysis section
+            { colspan: 8 },
+            { colspan: 4 }
           ]}
         >
           <Container 
             header={
-              <Header
-                variant="h2"
-                counter={`Winner of ${metrics?.total_pipelines || 100}+ evaluated pipelines`}
-                description="This pipeline achieved the highest cross-validated score during genetic optimization"
-              >
+              <Header variant="h2">
                 Model Pipeline
               </Header>
             }
           >
-            <SpaceBetween size="l">
-              <ExpandableSection
-                headerText="View Alternative Pipelines"
-                variant="footer"
-              >
-                <Box color="text-status-inactive">
-                  Advanced feature: Compare and promote alternative pipelines from the genetic optimization process.
-                  Available with Enterprise subscription.
-                </Box>
-              </ExpandableSection>
-
+            {pipelineError ? (
+              <Alert type="error">
+                {pipelineError}
+              </Alert>
+            ) : pipeline && pipeline.length > 0 ? (
               <div className={styles.pipelineContainer}>
                 {pipeline.map((step, index) => (
                   <React.Fragment key={index}>
@@ -374,18 +379,9 @@ const ModelDetails: React.FC = () => {
                   </React.Fragment>
                 ))}
               </div>
-
-              {showPipelineInfo && (
-                <Alert
-                  type="info"
-                  dismissible={true}
-                  onDismiss={() => setShowPipelineInfo(false)}
-                >
-                  This pipeline was selected through genetic programming optimization, evaluating multiple generations 
-                  of pipeline configurations to find the most effective combination of preprocessing and modeling steps.
-                </Alert>
-              )}
-            </SpaceBetween>
+            ) : (
+              <Spinner size="large" />
+            )}
           </Container>
 
           <Container
@@ -436,73 +432,162 @@ const ModelDetails: React.FC = () => {
   );
 
   const renderPerformanceSection = (version: ModelVersion) => (
-    metrics && version.status === 'TRAINING_COMPLETED' && (
+    version.status === 'TRAINING_COMPLETED' && (
       <Container header={<Header variant="h2">Model Performance</Header>}>
-        <SpaceBetween size="l">
-          {/* Performance Summary */}
-          <ColumnLayout columns={3}>
-            <div>
-              <Box variant="awsui-key-label">Accuracy</Box>
-              <div>{metrics.accuracy?.toFixed(4) || '-'}</div>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">ROC AUC</Box>
-              <div>{metrics.roc_auc?.toFixed(4) || '-'}</div>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">CV Score</Box>
-              <div>{metrics.cv_score?.toFixed(4) || '-'}</div>
-            </div>
-          </ColumnLayout>
-
-          <ColumnLayout columns={2}>
-            <div className={styles.tablesContainer}>
-              {/* Confusion Matrix */}
-              {metrics.confusion_matrix && (
+        <div className={styles.performanceContainer}>
+          {metricsError ? (
+            <Alert type="error">
+              {metricsError}
+            </Alert>
+          ) : metrics ? (
+            <SpaceBetween size="l">
+              {/* Performance Summary */}
+              <ColumnLayout columns={3}>
                 <div>
-                  <Header variant="h3">Confusion Matrix</Header>
-                  <Table
-                    columnDefinitions={[
-                      { id: 'label', header: 'Label', cell: (item) => item.label },
-                      { id: 'value', header: 'Value', cell: (item) => item.value },
-                    ]}
-                    items={[
-                      { label: 'True Negatives', value: metrics.confusion_matrix.true_negatives },
-                      { label: 'False Positives', value: metrics.confusion_matrix.false_positives },
-                      { label: 'False Negatives', value: metrics.confusion_matrix.false_negatives },
-                      { label: 'True Positives', value: metrics.confusion_matrix.true_positives },
-                    ]}
-                  />
+                  <Box variant="awsui-key-label">Accuracy</Box>
+                  <div>{metrics.accuracy?.toFixed(4) || '-'}</div>
                 </div>
-              )}
-
-              {/* Classification Report */}
-              {metrics.classification_report && (
                 <div>
-                  <Header variant="h3">Classification Report</Header>
-                  <Table
-                    columnDefinitions={[
-                      { id: 'metric', header: 'Class', cell: (item) => item.metric },
-                      { id: 'precision', header: 'Precision', cell: (item) => item.precision?.toFixed(4) || '-' },
-                      { id: 'recall', header: 'Recall', cell: (item) => item.recall?.toFixed(4) || '-' },
-                      { id: 'f1_score', header: 'F1 Score', cell: (item) => item.f1_score?.toFixed(4) || '-' },
-                      { id: 'support', header: 'Support', cell: (item) => item.support || '-' },
-                    ]}
-                    items={Object.entries(metrics.classification_report).map(([key, value]) => ({
-                      metric: key,
-                      ...value
-                    }))}
-                  />
+                  <Box variant="awsui-key-label">CV Score</Box>
+                  <div>{metrics.cv_score?.toFixed(4) || '-'}</div>
                 </div>
-              )}
-            </div>
+                <div>
+                  <Box variant="awsui-key-label">ROC AUC</Box>
+                  <div>{metrics.roc_auc?.toFixed(4) || 'N/A'}</div>
+                </div>
+              </ColumnLayout>
 
-            {/* AUC Chart */}
-            <div className={styles.chartContainer}>
-              {metrics.auc_data && renderAUCChart()}
-            </div>
-          </ColumnLayout>
-        </SpaceBetween>
+              <div className={styles.metricsGrid}>
+                <div className={styles.metricsColumn}>
+                  {/* Confusion Matrix */}
+                  <div>
+                    <Header variant="h3">Confusion Matrix</Header>
+                    {metrics.confusion_matrix ? (
+                      <Table
+                        columnDefinitions={[
+                          { id: 'label', header: 'Label', cell: (item) => item.label },
+                          { id: 'value', header: 'Value', cell: (item) => item.value },
+                        ]}
+                        items={[
+                          { label: 'True Negatives', value: metrics.confusion_matrix.true_negatives },
+                          { label: 'False Positives', value: metrics.confusion_matrix.false_positives },
+                          { label: 'False Negatives', value: metrics.confusion_matrix.false_negatives },
+                          { label: 'True Positives', value: metrics.confusion_matrix.true_positives },
+                        ]}
+                      />
+                    ) : (
+                      <Box color="text-status-inactive">Confusion matrix not available for this model</Box>
+                    )}
+                  </div>
+
+                  {/* Classification Report */}
+                  <div>
+                    <Header variant="h3">Classification Report</Header>
+                    {metrics.classification_report ? (
+                      <Table
+                        columnDefinitions={[
+                          { id: 'metric', header: 'Class', cell: (item) => (
+                            <div style={{ 
+                              fontWeight: item.isAggregate ? 'bold' : 'normal',
+                              borderTop: item.isAggregate ? '1px solid #e9ebed' : 'none',
+                              paddingTop: item.isAggregate ? '8px' : '0'
+                            }}>
+                              {item.metric}
+                            </div>
+                          )},
+                          { 
+                            id: 'precision', 
+                            header: 'Precision', 
+                            cell: (item) => (
+                              <div style={{ 
+                                fontWeight: item.isAggregate ? 'bold' : 'normal',
+                                borderTop: item.isAggregate ? '1px solid #e9ebed' : 'none',
+                                paddingTop: item.isAggregate ? '8px' : '0'
+                              }}>
+                                {item.precision?.toFixed(4) || '-'}
+                              </div>
+                            )
+                          },
+                          { 
+                            id: 'recall', 
+                            header: 'Recall', 
+                            cell: (item) => (
+                              <div style={{ 
+                                fontWeight: item.isAggregate ? 'bold' : 'normal',
+                                borderTop: item.isAggregate ? '1px solid #e9ebed' : 'none',
+                                paddingTop: item.isAggregate ? '8px' : '0'
+                              }}>
+                                {item.recall?.toFixed(4) || '-'}
+                              </div>
+                            )
+                          },
+                          { 
+                            id: 'f1_score', 
+                            header: 'F1 Score', 
+                            cell: (item) => (
+                              <div style={{ 
+                                fontWeight: item.isAggregate ? 'bold' : 'normal',
+                                borderTop: item.isAggregate ? '1px solid #e9ebed' : 'none',
+                                paddingTop: item.isAggregate ? '8px' : '0'
+                              }}>
+                                {item.f1_score?.toFixed(4) || '-'}
+                              </div>
+                            )
+                          },
+                          { 
+                            id: 'support', 
+                            header: 'Support', 
+                            cell: (item) => (
+                              <div style={{ 
+                                fontWeight: item.isAggregate ? 'bold' : 'normal',
+                                borderTop: item.isAggregate ? '1px solid #e9ebed' : 'none',
+                                paddingTop: item.isAggregate ? '8px' : '0'
+                              }}>
+                                {item.support || '-'}
+                              </div>
+                            )
+                          },
+                        ]}
+                        items={[
+                          // Regular class metrics
+                          ...Object.entries(metrics.classification_report)
+                            .filter(([key]) => !['accuracy', 'macro avg', 'weighted avg'].includes(key))
+                            .map(([key, value]) => ({
+                              metric: key,
+                              ...value,
+                              isAggregate: false
+                            })),
+                          // Aggregate metrics
+                          ...['macro avg', 'weighted avg'].map(key => ({
+                            metric: key,
+                            ...metrics.classification_report[key],
+                            isAggregate: true
+                          }))
+                        ]}
+                      />
+                    ) : (
+                      <Box color="text-status-inactive">Classification report not available for this model</Box>
+                    )}
+                  </div>
+                </div>
+
+                {/* AUC Chart */}
+                <div className={styles.chartContainer}>
+                  <Header variant="h3">ROC Curve</Header>
+                  <div className={styles.chartContent}>
+                    {metrics.auc_data ? (
+                      renderAUCChart()
+                    ) : (
+                      <Box color="text-status-inactive">ROC curve not available for this model</Box>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </SpaceBetween>
+          ) : (
+            <Spinner size="large" />
+          )}
+        </div>
       </Container>
     )
   );
