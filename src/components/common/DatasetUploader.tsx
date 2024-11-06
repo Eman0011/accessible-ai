@@ -234,11 +234,15 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     setError(null);
     setIsCreatingDataset(true);
     try {
-      let targetDatasetId: string;
+      let targetDatasetId: string = '';
 
       if (selectedDatasetId === '+ Create new dataset') {
         const newDataset = await createNewDataset();
-        targetDatasetId = newDataset.id;
+        if (newDataset && newDataset.id) {
+          targetDatasetId = newDataset.id;
+        } else {
+          throw new Error('Failed to create dataset');
+        }
       } else {
         targetDatasetId = selectedDatasetId || '';
       }
@@ -308,7 +312,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         dataset={{
           name: datasetName,
           description: datasetDescription,
-          owner: userInfo?.userName || 'unknown_user',
+          owner: userInfo?.username || 'unknown_user',
           projectId: projectId,
           id: selectedDatasetId || datasetId,
         }}

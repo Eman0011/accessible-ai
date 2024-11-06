@@ -3,6 +3,7 @@ export const BATCH_JOB_DEFINITION = "arn:aws:batch:us-east-1:021891615151:job-de
 export const BATCH_JOB_ROLE = "arn:aws:iam::021891615151:role/AccessibleAiCdkStack-BatchConstructAAIBatchJobRole7-8dz3p89grvNt"
 
 
+export const PREDICTIONS_OUTPUT_BUCKET = "model-inference-output"
 export const TRAINING_OUTPUT_BUCKET = "model-training-output"
 export const TRAINING_CONTAINER = "tpot-training";
 export const ECR_REPOSITORY = "aai-batch-repo"

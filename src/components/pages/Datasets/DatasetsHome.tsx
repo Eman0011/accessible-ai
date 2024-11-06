@@ -39,7 +39,15 @@ const DatasetsHome: React.FC = () => {
         filter: { projectId: { eq: currentProject?.id } }
       });
       
-      const datasetsWithVersions: Dataset[] = fetchedDatasets as Dataset[];
+      const datasetsWithVersions: Dataset[] = fetchedDatasets.map(d => ({
+        id: d.id || '',
+        name: d.name || '',
+        description: d.description || '',
+        owner: d.owner || '',
+        projectId: d.projectId || '',
+        createdAt: d.createdAt || null,
+        updatedAt: d.updatedAt || null
+      }));
       const versionsMap: { [key: string]: DatasetVersion[] } = {};
 
       // Fetch versions for each dataset
@@ -48,7 +56,17 @@ const DatasetsHome: React.FC = () => {
           const { data: versions } = await client.models.DatasetVersion.list({
             filter: { datasetId: { eq: dataset.id } }
           });
-          versionsMap[dataset.id] = versions as DatasetVersion[];
+          versionsMap[dataset.id] = versions.map(v => ({
+            id: v.id || '',
+            datasetId: v.datasetId,
+            version: v.version,
+            s3Key: v.s3Key,
+            size: v.size,
+            rowCount: v.rowCount,
+            uploadDate: v.uploadDate,
+            createdAt: v.createdAt || null,
+            updatedAt: v.updatedAt || null
+          }));
         })
       );
 
@@ -63,9 +81,10 @@ const DatasetsHome: React.FC = () => {
 
   const getLatestVersion = (datasetId: string): DatasetVersion | undefined => {
     const versions = datasetVersions[datasetId] || [];
-    return versions.reduce((latest, current) => 
-      !latest || current.version > latest.version ? current : latest
-    , undefined);
+    return versions.reduce<DatasetVersion | undefined>((latest, current) => {
+      if (!latest) return current;
+      return current.version > latest.version ? current : latest;
+    }, undefined);
   };
 
   const columnDefinitions: TableProps.ColumnDefinition<Dataset>[] = [

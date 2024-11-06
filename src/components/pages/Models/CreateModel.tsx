@@ -52,6 +52,7 @@ const CreateModel: React.FC = () => {
   const [newModelDescription, setNewModelDescription] = useState(''); // State for new model description
   const [datasetVersions, setDatasetVersions] = useState<DatasetVersion[]>([]);
   const [selectedDatasetVersions, setSelectedDatasetVersions] = useState<DatasetVersion[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('Initial useEffect - currentProject:', currentProject?.id);

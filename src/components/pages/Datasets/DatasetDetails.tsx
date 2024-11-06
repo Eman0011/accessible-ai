@@ -47,8 +47,29 @@ const DatasetDetails: React.FC = () => {
         filter: { datasetId: { eq: id } }
       });
 
-      const sortedVersions = (fetchedVersions as DatasetVersion[]).sort((a, b) => b.version - a.version);
-      setDataset(fetchedDataset as Dataset);
+      const sortedVersions: DatasetVersion[] = (fetchedVersions || []).map(v => ({
+        id: v.id || '',
+        datasetId: v.datasetId || '',
+        version: v.version || 1,
+        s3Key: v.s3Key || '',
+        size: v.size || 0,
+        rowCount: v.rowCount || 0,
+        uploadDate: v.uploadDate || new Date().toISOString(),
+        createdAt: v.createdAt || null,
+        updatedAt: v.updatedAt || null
+      })).sort((a, b) => b.version - a.version);
+
+      const dataset: Dataset = {
+        id: fetchedDataset?.id || '',
+        name: fetchedDataset?.name || '',
+        description: fetchedDataset?.description || '',
+        owner: fetchedDataset?.owner || '',
+        projectId: fetchedDataset?.projectId || '',
+        createdAt: fetchedDataset?.createdAt || null,
+        updatedAt: fetchedDataset?.updatedAt || null
+      };
+
+      setDataset(dataset);
       setVersions(sortedVersions);
       
       // Select the latest version by default

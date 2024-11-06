@@ -1,6 +1,17 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getCurrentUser } from 'aws-amplify/auth';
-import { User, UserInfo } from '../types/models';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { UserInfo, UserRole } from '../types/models';
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  organizationId: string;
+  role: UserRole;
+  title?: string;
+  level?: string;
+  signInDetails?: any;
+}
 
 interface UserContextType {
   user: User | null;
@@ -29,13 +40,18 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeUser = async () => {
       try {
-        const currentUser = await getCurrentUser();
+        const authUser = await getCurrentUser();
         
         if (isMounted) {
-          const newUser = {
-            username: currentUser.username,
-            userId: currentUser.userId,
-            signInDetails: currentUser.signInDetails
+          const newUser: User = {
+            id: authUser.userId,
+            username: authUser.username,
+            email: authUser.signInDetails?.loginId || '',
+            organizationId: 'default',
+            role: 'member',
+            title: '',
+            level: 'junior',
+            signInDetails: authUser.signInDetails
           };
           setUser(newUser);
           setError(null);
@@ -57,7 +73,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       isMounted = false;
     };
-  }, []); // Empty dependency array means this only runs once on mount
+  }, []);
 
   const value = {
     user,

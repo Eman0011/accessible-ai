@@ -1,40 +1,30 @@
-class LRUCache<K, V> {
-  private capacity: number;
-  private cache: Map<K, V>;
+import { LRUCache } from 'lru-cache';
 
-  constructor(capacity: number) {
-    this.capacity = capacity;
-    this.cache = new Map();
-  }
+const options = {
+  max: 100, // Maximum number of items
+  maxSize: 500 * 1024 * 1024, // 500MB total size limit
+  sizeCalculation: (value: any) => {
+    // Rough estimation of object size in bytes
+    return JSON.stringify(value).length;
+  },
+  ttl: 1000 * 60 * 10, // Items expire in 10 minutes
+};
 
-  get(key: K): V | undefined {
-    if (!this.cache.has(key)) {
-      console.log('Cache miss for:', key);
-      return undefined;
-    }
-    
-    // Remove & re-add to put it at the end (most recently used)
-    const value = this.cache.get(key);
-    this.cache.delete(key);
-    this.cache.set(key, value!);
+// Create a single instance of the LRU cache
+export const globalS3Cache = new LRUCache(options);
+
+// Export consistent interface
+export const getFromCache = (key: string): any => {
+  const value = globalS3Cache.get(key);
+  if (value !== undefined) {
+    console.debug('Cache hit for:', key);
     return value;
   }
+  console.debug('Cache miss for:', key);
+  return null;
+};
 
-  put(key: K, value: V): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    } else if (this.cache.size >= this.capacity) {
-      // Remove the first item (least recently used)
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
-    }
-    this.cache.set(key, value);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-}
-
-// Create a global instance with a capacity of 50 items
-export const globalS3Cache = new LRUCache<string, any>(20); 
+export const setInCache = (key: string, value: any): void => {
+  globalS3Cache.set(key, value);
+  console.debug('Cached data for:', key);
+};

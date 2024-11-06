@@ -1,56 +1,49 @@
+import { getFromCache, setInCache } from '../../../utils/CacheUtils';
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { fetchAuthSession } from 'aws-amplify/auth';
-import { globalS3Cache } from '../../../utils/CacheUtils';
 
-// Downloads raw data from S3 bucket
-export const downloadFromS3 = async (key: string, bucket: string): Promise<string> => {
+// Create S3 client with credentials
+const getS3Client = async () => {
+  const { credentials } = await fetchAuthSession();
+  return new S3Client({ 
+    region: 'us-east-1',
+    credentials: credentials
+  });
+};
+
+export const getS3JSONFromBucket = async <T>(key: string, bucket: string): Promise<T> => {
+  // Remove bucket prefix from key if it exists
+  const cleanKey = key.replace(`${bucket}/`, '');
+  
+  // Create consistent cache key
+  const cacheKey = `${bucket}/${cleanKey}`;
+  
+  // Check cache first
+  const cachedData = getFromCache(cacheKey);
+  if (cachedData) {
+    return cachedData as T;
+  }
+
   try {
-    const session = await fetchAuthSession();
-    const s3Client = new S3Client({
-      region: 'us-east-1',
-      credentials: session.credentials,
-    });
-
+    const s3Client = await getS3Client();
     const command = new GetObjectCommand({
       Bucket: bucket,
-      Key: key,
+      Key: cleanKey,
     });
 
     const response = await s3Client.send(command);
-    return await response.Body?.transformToString() || '';
-  } catch (error) {
-    console.error('Error downloading from S3:', error);
-    throw error;
-  }
-};
+    
+    if (!response.Body) {
+      throw new Error('No data received from S3');
+    }
 
-// Helper to parse JSON from string data
-export const parseJSON = <T>(data: string): T => {
-  try {
-    console.log('Parsing JSON:', data);
-    return JSON.parse(data) as T;
-  } catch (error) {
-    console.error('Error parsing JSON:', error);
-    throw error;
-  }
-};
-
-// Convenience function to download and parse JSON from S3
-export const getS3JSONFromBucket = async <T>(key: string, bucket: string): Promise<T> => {
-  // Check cache first
-  const cacheKey = `${bucket}/${key}`;
-  const cachedData = globalS3Cache.get(cacheKey);
-  if (cachedData) {
-    console.log('Cache hit for:', cacheKey);
-    return cachedData;
-  }
-
-  try {
-    const rawData = await downloadFromS3(key, bucket);
-    const data = parseJSON<T>(rawData);
+    // Convert stream to text
+    const reader = response.Body.transformToString();
+    const text = await reader;
+    const data = JSON.parse(text) as T;
     
     // Store in cache
-    globalS3Cache.put(cacheKey, data);
+    setInCache(cacheKey, data);
     
     return data;
   } catch (error) {

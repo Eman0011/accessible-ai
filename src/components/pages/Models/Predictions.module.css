@@ -1,0 +1,19 @@
+.json-input-container {
+    min-height: 200px;
+}
+
+.json-input {
+    height: 100%;
+    font-family: monospace;
+    font-size: 14px;
+    resize: vertical;
+}
+
+/* Optional: Style the JSON content */
+.json-input textarea {
+    min-height: calc(80vh - 300px);
+    font-family: monospace;
+    font-size: 14px;
+    padding: 12px;
+    height: 100%;
+} 

@@ -3,7 +3,7 @@ import { UserInfo } from '../types/models';
 export function generateStoragePath(params: {
   userId: string;
   projectId: string;
-  resourceType: 'datasets' | 'models';
+  resourceType: 'datasets' | 'models' | 'predictions';
   resourceId: string;
   version?: number;
   fileName?: string;
