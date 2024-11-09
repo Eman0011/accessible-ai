@@ -7,8 +7,6 @@ import styles from './ModelPipelineVisualizer.module.css';
 
 interface ModelPipelineVisualizerProps {
     modelVersion: ModelVersion;
-    expanded?: boolean;
-    showAlternatives?: boolean;
 }
 
 interface PipelineStep {
@@ -19,9 +17,7 @@ interface PipelineStep {
 }
 
 const ModelPipelineVisualizer: React.FC<ModelPipelineVisualizerProps> = ({ 
-    modelVersion,
-    expanded = false,
-    showAlternatives = true
+    modelVersion
 }) => {
     const [pipeline, setPipeline] = useState<PipelineStep[]>([]);
     const [error, setError] = useState<string | null>(null);

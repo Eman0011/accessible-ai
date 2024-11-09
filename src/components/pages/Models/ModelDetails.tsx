@@ -379,7 +379,6 @@ const ModelDetails: React.FC = () => {
         {selectedVersion && (
             <ModelPipelineVisualizer 
                 modelVersion={versions.find(v => v.id === selectedVersion)!}
-                expanded={true}
             />
         )}
         {selectedVersion && versions.find(v => v.id === selectedVersion)?.status === 'TRAINING_COMPLETED' && 

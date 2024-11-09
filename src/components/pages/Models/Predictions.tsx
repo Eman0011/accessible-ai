@@ -608,8 +608,6 @@ const Predictions: React.FC = () => {
                             <div style={{ overflowX: 'auto' }}>
                                 <ModelPipelineVisualizer 
                                     modelVersion={selectedModelVersion}
-                                    expanded={false}
-                                    showAlternatives={false}
                                 />
                             </div>
                         )}
@@ -619,7 +617,7 @@ const Predictions: React.FC = () => {
                         >
                             {isLoading ? (
                                 <Box textAlign="left" padding="l">
-                                    <SpaceBetween size="m" direction="vertical" alignItems="flex-start">
+                                    <SpaceBetween size="m" direction="vertical" alignItems="start">
                                         <Spinner size="large" />
                                         <Box variant="p">
                                             Running inference...
