@@ -11,9 +11,127 @@
 
 /* Optional: Style the JSON content */
 .json-input textarea {
-    min-height: calc(80vh - 300px);
+    max-height: 35vh;
     font-family: monospace;
     font-size: 14px;
     padding: 12px;
     height: 100%;
-} 
+}
+
+.topSection {
+    display: grid;
+    grid-template-columns: minmax(250px, 1fr) minmax(0, 3fr);
+    gap: 24px;
+    width: 100%;
+}
+
+.selectionPanel {
+    min-width: 250px;
+}
+
+.pipelinePanel {
+    width: 100%;
+    min-width: 0;
+}
+
+.step-card {
+    background: var(--color-background-container-content);
+    border: 1px solid var(--color-border-container-default);
+    border-radius: 8px;
+    padding: 16px;
+    width: 220px;
+    min-width: 220px;
+    margin: 0;
+    box-shadow: 
+        0 2px 6px rgba(0, 0, 0, 0.12),
+        0 1px 3px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+.step-card::after {
+    content: '';
+    position: absolute;
+    right: -24px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 16px solid var(--color-border-divider-default);
+}
+
+.step-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-heading);
+    word-wrap: break-word;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.result-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--color-background-container-header);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px auto;
+    border: 2px solid #0972d3;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.result-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-text-heading);
+    text-align: center;
+    word-break: break-word;
+    padding: 8px;
+}
+
+.status-container {
+    margin-top: 8px;
+    border-top: 1px solid var(--color-border-divider-default);
+    padding-top: 8px;
+}
+
+/* Add this to hide arrow on last step */
+.last-step::after {
+    display: none;
+}
+
+/* Replace the arrow-container styles with these */
+.arrow-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    justify-content: flex-start;
+    margin-left: 24px;
+}
+
+.arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    color: var(--color-text-interactive-default);
+    margin: 0 12px;
+}
+
+/* Remove the ::before and ::after pseudo-elements since we're using the Icon component */
+.step-card::before,
+.step-card::after {
+    display: none;
+}
+
+.error-circle {
+    border-color: var(--color-border-status-error);
+    background: var(--color-background-status-error);
+}
+
+.error-circle .result-value {
+    color: var(--color-text-status-error);
+}

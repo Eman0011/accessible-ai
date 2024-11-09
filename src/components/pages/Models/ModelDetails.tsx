@@ -35,6 +35,7 @@ import { Model, ModelStatus, ModelVersion } from '../../../types/models';
 import { getPipelineStepIcon, hasCustomIcon } from '../../../utils/PipelineIconUtils';
 import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import styles from './ModelDetails.module.css';
+import ModelPipelineVisualizer from '../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
 
 // Register ChartJS components
 ChartJS.register(
@@ -211,27 +212,20 @@ const ModelDetails: React.FC = () => {
   const fetchModelOutputData = async (version: ModelVersion) => {
     try {
       let basePath = version.s3OutputPath;
-
       if (!basePath) {
         console.error('No valid S3 path found in version:', version);
         return;
       }
 
-      // Ensure basePath starts with bucket name
-      if (!basePath.startsWith(TRAINING_OUTPUT_BUCKET)) {
-        basePath = `${TRAINING_OUTPUT_BUCKET}/${basePath}`;
-      }
-
-      const metricsPath = `${basePath}/best_model_metrics.json`;
-      const pipelinePath = `${basePath}/best_model_pipeline.json`;
-      
       // Reset error states
       setMetricsError(null);
       setPipelineError(null);
 
       // Fetch metrics and pipeline separately to handle partial failures
       try {
-        const metricsData = await getS3JSONFromBucket<ModelMetrics>(metricsPath, TRAINING_OUTPUT_BUCKET);
+        const metricsData = await getS3JSONFromBucket<ModelMetrics>(
+          `${basePath}/best_model_metrics.json`
+        );
         setMetrics(metricsData);
       } catch (metricsError) {
         console.error('Error fetching metrics:', metricsError);
@@ -240,14 +234,15 @@ const ModelDetails: React.FC = () => {
       }
 
       try {
-        const pipelineData = await getS3JSONFromBucket<PipelineStep[]>(pipelinePath, TRAINING_OUTPUT_BUCKET);
+        const pipelineData = await getS3JSONFromBucket<PipelineStep[]>(
+          `${basePath}/best_model_pipeline.json`
+        );
         setPipeline(pipelineData);
       } catch (pipelineError) {
         console.error('Error fetching pipeline:', pipelineError);
         setPipelineError('Failed to load model pipeline');
         setPipeline([]);
       }
-
     } catch (error) {
       console.error('Error in fetchModelOutputData:', error);
       setMetricsError('Failed to load model data');
@@ -381,107 +376,17 @@ const ModelDetails: React.FC = () => {
 
       {/* Right column: Pipeline and Performance */}
       <div className={styles.rightColumn}>
-        {selectedVersion && renderVersionDetailsAndPipeline(versions.find(v => v.id === selectedVersion)!)}
+        {selectedVersion && (
+            <ModelPipelineVisualizer 
+                modelVersion={versions.find(v => v.id === selectedVersion)!}
+                expanded={true}
+            />
+        )}
         {selectedVersion && versions.find(v => v.id === selectedVersion)?.status === 'TRAINING_COMPLETED' && 
-          renderPerformanceSection(versions.find(v => v.id === selectedVersion)!)
+            renderPerformanceSection(versions.find(v => v.id === selectedVersion)!)
         }
       </div>
     </div>
-  );
-
-  const renderVersionDetailsAndPipeline = (version: ModelVersion) => (
-    version.status === 'TRAINING_COMPLETED' && (
-      <Container 
-        header={
-          <Header variant="h2">Model Pipeline</Header>
-        }
-      >
-        {pipelineError ? (
-          <Alert type="error">{pipelineError}</Alert>
-        ) : pipeline && pipeline.length > 0 ? (
-          <>
-            <div className={styles.pipelineContainer}>
-              {pipeline.map((step, index) => (
-                <React.Fragment key={index}>
-                  <div className={styles.stepCard}>
-                    <div className={styles.stepIcon}>
-                      {hasCustomIcon(step) ? (
-                        <img 
-                          src={getPipelineStepIcon(step)} 
-                          alt={step.class_name}
-                          className={styles.stepImage}
-                        />
-                      ) : (
-                        <Icon name="settings" size="big" />
-                      )}
-                    </div>
-                    
-                    <div className={styles.stepDetails}>
-                      <div className={styles.stepName}>{step.class_name}</div>
-                      <div className={styles.stepModule}>{step.module}</div>
-                      <ExpandableSection 
-                        headerText="Parameters" 
-                        variant="footer"
-                        className={styles.stepParams}
-                      >
-                        <pre>{JSON.stringify(step.params, null, 2)}</pre>
-                      </ExpandableSection>
-                    </div>
-                  </div>
-                  {index < pipeline.length - 1 && (
-                    <div className={styles.arrow}>
-                      <Icon name="angle-right" size="big" />
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-
-              
-              <div className={styles.pipelineHeader}>
-               <div className={styles.topPipelineBadge}>
-                <img 
-                  src={getPipelineStepIcon({ class_name: 'TopPipeline' })} 
-                  alt="Top Pipeline"
-                  className={styles.topPipelineIcon}
-                />
-                <div>Top Pipeline</div>
-               </div>
-                <Box color="text-status-success" textAlign="center" padding={{ top: 'l' }}>
-                  <div>
-                    <span>
-                      <Icon 
-                        name="status-positive" 
-                        size="small" 
-                        variant="success"
-                      />
-                    </span>
-                    <span> Highest peforming pipeline out of 1,000 candidates <br /> through genetic programming optimization.</span>
-                  </div>
-                </Box>
-              </div>
-          </>
-        ) : (
-          <Spinner size="large" />
-        )}
-
-        <ExpandableSection
-          headerText="View Alternative Pipelines (999 more)"
-          variant="footer"
-          className={styles.alternativePipelines}
-        >
-          <Alert
-            type="info"
-            header="Coming Soon"
-            dismissible={false}
-          >
-            You'll soon be able to explore and compare all the pipeline variations that were evaluated 
-            during training. This will help you understand the model selection process and why this 
-            pipeline was chosen as the best performer.
-          </Alert>
-        </ExpandableSection>
-      </Container>
-    )
   );
 
   const renderPerformanceSection = (version: ModelVersion) => (
@@ -644,6 +549,21 @@ const ModelDetails: React.FC = () => {
     navigate('/models/create', { state: { selectedModelId: modelId } });
   };
 
+  const handleRunPredictions = () => {
+    if (model) {
+      navigate('/models/predictions', { 
+        state: { 
+          selectedModelId: model.id,
+          selectedModelVersion: selectedVersion  // Pass the selected version ID directly
+        }
+      });
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchData();  // Re-fetch all model data
+  };
+
   const renderAUCChart = () => {
     if (!metrics?.auc_data) return null;
 
@@ -727,16 +647,26 @@ const ModelDetails: React.FC = () => {
         variant="h1"
         actions={
           <SpaceBetween direction="horizontal" size="xs">
-            <Button onClick={fetchData} iconName="refresh">
-              Refresh
+            <Button
+              onClick={handleRunPredictions}
+              variant="primary"
+              disabled={!selectedVersion || versions.find(v => v.id === selectedVersion)?.status !== 'TRAINING_COMPLETED'}
+            >
+              Run Predictions
             </Button>
-            <Button variant="primary" onClick={handleCreateNewVersion}>
+            <Button
+              onClick={handleCreateNewVersion}
+            >
               Create New Version
             </Button>
+            <Button
+              onClick={handleRefresh}
+              iconName="refresh"
+            />
           </SpaceBetween>
         }
       >
-        {model.name}
+        {model?.name}
       </Header>
 
       {/* Model Overview */}

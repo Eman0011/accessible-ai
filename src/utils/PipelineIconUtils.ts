@@ -2,33 +2,34 @@ import TopPipelineIcon from '../assets/aai_icons/pipeline_steps/TopPipeline.webp
 /**
  * Import Classifier Icons
  */
+import BernoulliNBClassifierIcon from '../assets/aai_icons/classifiers/BernoulliNB.webp';
 import DecisionTreeClassifierIcon from '../assets/aai_icons/classifiers/DecisionTreeClassifier.webp';
 import ExtraTreesClassifierIcon from '../assets/aai_icons/classifiers/ExtraTreesClassifier.webp';
+import GaussianNBClassifierIcon from '../assets/aai_icons/classifiers/GaussianNB.webp';
 import GradientBoostingClassifierIcon from '../assets/aai_icons/classifiers/GradientBoostingClassifier.webp';
 import KNeighborsClassifierIcon from '../assets/aai_icons/classifiers/KNeighborsClassifier.webp';
 import LinearSVCClassifierIcon from '../assets/aai_icons/classifiers/LinearSVCClassifier.webp';
 import LogisticRegressionIcon from '../assets/aai_icons/classifiers/LogisticRegression.webp';
 import MLPClassifierIcon from '../assets/aai_icons/classifiers/MLPClassifier.webp';
+import MultinomialNBClassifierIcon from '../assets/aai_icons/classifiers/MultinomialNB.webp';
 import RandomForestClassifierIcon from '../assets/aai_icons/classifiers/RandomForestClassifier.webp';
 import SGDClassifierIcon from '../assets/aai_icons/classifiers/SGDClassifier.webp';
 import SVCClassifierIcon from '../assets/aai_icons/classifiers/SVCClassifier.webp';
 import XGBClassifierIcon from '../assets/aai_icons/classifiers/XGBClassifier.webp';
-import GaussianNBClassifierIcon from '../assets/aai_icons/classifiers/GaussianNB.webp';
-import BernoulliNBClassifierIcon from '../assets/aai_icons/classifiers/BernoulliNB.webp';
-import MultinomialNBClassifierIcon from '../assets/aai_icons/classifiers/MultinomialNB.webp';
 
 /**
  * Import Pipeline Step Icons
  */
+import BinarizerIcon from '../assets/aai_icons/pipeline_steps/Binarizer.webp';
+import FeatureAgglomerationIcon from '../assets/aai_icons/pipeline_steps/FeatureAgglomeration.webp';
+import KernelPCAIcon from '../assets/aai_icons/pipeline_steps/KernelPCA.webp';
 import MaxAbsScalerIcon from '../assets/aai_icons/pipeline_steps/MaxAbsScaler.webp';
 import MinMaxScalerIcon from '../assets/aai_icons/pipeline_steps/MinMaxScaler.webp';
 import OneHotEncoderIcon from '../assets/aai_icons/pipeline_steps/OneHotEncoder.webp';
+import PCAIcon from '../assets/aai_icons/pipeline_steps/PCA.webp';
+import RobustScalerIcon from '../assets/aai_icons/pipeline_steps/RobustScaler.png';
 import StandardScalerIcon from '../assets/aai_icons/pipeline_steps/StandardScaler.webp';
 import ZeroCountEncoderIcon from '../assets/aai_icons/pipeline_steps/ZeroCountEncoder.webp';
-import BinarizerIcon from '../assets/aai_icons/pipeline_steps/Binarizer.webp';
-import KernelPCAIcon from '../assets/aai_icons/pipeline_steps/KernelPCA.webp';
-import PCAIcon from '../assets/aai_icons/pipeline_steps/PCA.webp';
-import FeatureAgglomerationIcon from '../assets/aai_icons/pipeline_steps/FeatureAgglomeration.webp';
 
 // Icon mapping
 const PIPELINE_STEP_ICONS: { [key: string]: string } = {
@@ -57,6 +58,7 @@ const PIPELINE_STEP_ICONS: { [key: string]: string } = {
     'MinMaxScaler': MinMaxScalerIcon,
     'StandardScaler': StandardScalerIcon,
     'MaxAbsScaler': MaxAbsScalerIcon,
+    'RobustScaler': RobustScalerIcon,
     'ZeroCount': ZeroCountEncoderIcon,
     'Binarizer': BinarizerIcon,
     'KernelPCA': KernelPCAIcon,

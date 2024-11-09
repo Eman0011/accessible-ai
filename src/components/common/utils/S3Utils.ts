@@ -1,6 +1,6 @@
-import { getFromCache, setInCache } from '../../../utils/CacheUtils';
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { getFromCache, setInCache } from '../../../utils/CacheUtils';
 
 // Create S3 client with credentials
 const getS3Client = async () => {
@@ -11,24 +11,30 @@ const getS3Client = async () => {
   });
 };
 
-export const getS3JSONFromBucket = async <T>(key: string, bucket: string): Promise<T> => {
-  // Remove bucket prefix from key if it exists
-  const cleanKey = key.replace(`${bucket}/`, '');
-  
-  // Create consistent cache key
-  const cacheKey = `${bucket}/${cleanKey}`;
-  
+
+
+
+export const parseS3Path = (s3Path: string): { bucket: string; key: string } => {
+  const parts = s3Path.split('/');
+  const bucket = parts[0]; // Assuming the first part is the bucket name
+  const key = parts.slice(1).join('/'); // The rest is the key
+  return { bucket, key };
+};
+
+export const getS3JSONFromBucket = async <T>(s3Path: string): Promise<T> => {
   // Check cache first
-  const cachedData = getFromCache(cacheKey);
+  const cachedData = getFromCache(s3Path);
   if (cachedData) {
     return cachedData as T;
   }
 
   try {
+    const { bucket, key } = parseS3Path(s3Path);
+    console.log('Fetching from Bucket:', bucket, 'Key:', key);
     const s3Client = await getS3Client();
     const command = new GetObjectCommand({
       Bucket: bucket,
-      Key: cleanKey,
+      Key: key,
     });
 
     const response = await s3Client.send(command);
@@ -43,7 +49,7 @@ export const getS3JSONFromBucket = async <T>(key: string, bucket: string): Promi
     const data = JSON.parse(text) as T;
     
     // Store in cache
-    setInCache(cacheKey, data);
+    setInCache(s3Path, data);
     
     return data;
   } catch (error) {

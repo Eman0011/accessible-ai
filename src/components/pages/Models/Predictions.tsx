@@ -1,14 +1,15 @@
 import { FileUploader } from '@aws-amplify/ui-react-storage';
-import { Box, Button, Form, FormField, Header, Input, Select, SpaceBetween, Tabs, Textarea, Toggle } from '@cloudscape-design/components';
+import { Alert, Box, Button, Container, FormField, Header, Icon, Input, Select, SpaceBetween, Spinner, StatusIndicator, Tabs, Textarea, Toggle } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import Papa from 'papaparse';
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import type { Schema } from '../../../../amplify/data/resource';
-import { PREDICTIONS_OUTPUT_BUCKET, TRAINING_OUTPUT_BUCKET } from '../../../../Config';
 import { useUser } from '../../../contexts/UserContext';
 import { Model, ModelVersion } from '../../../types/models';
 import { generateStoragePath } from '../../../utils/storageUtils';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
+import ModelPipelineVisualizer from '../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
 import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import styles from './Predictions.module.css';
 
@@ -74,15 +75,22 @@ interface AdhocFormProps {
     featureNames: string[];
     featureInputs: Record<string, string>;
     onFeatureInputChange: (feature: string, value: string) => void;
+    disabled?: boolean;
 }
 
-const AdhocForm: React.FC<AdhocFormProps> = ({ featureNames, featureInputs, onFeatureInputChange }) => (
+const AdhocForm: React.FC<AdhocFormProps> = ({ 
+    featureNames, 
+    featureInputs, 
+    onFeatureInputChange,
+    disabled 
+}) => (
     <SpaceBetween size="m">
         {featureNames.map(feature => (
             <FormField key={feature} label={feature}>
                 <Input
                     value={featureInputs[feature] || ''}
                     onChange={({ detail }) => onFeatureInputChange(feature, detail.value)}
+                    disabled={disabled}
                 />
             </FormField>
         ))}
@@ -93,9 +101,15 @@ interface JsonInputProps {
     jsonInput: string;
     jsonError: string | null;
     onJsonChange: (value: string) => void;
+    disabled?: boolean;
 }
 
-const JsonInput: React.FC<JsonInputProps> = ({ jsonInput, jsonError, onJsonChange }) => (
+const JsonInput: React.FC<JsonInputProps> = ({ 
+    jsonInput, 
+    jsonError, 
+    onJsonChange,
+    disabled 
+}) => (
     <FormField 
         label="JSON Input"
         errorText={jsonError}
@@ -106,11 +120,80 @@ const JsonInput: React.FC<JsonInputProps> = ({ jsonInput, jsonError, onJsonChang
             onChange={({ detail }) => onJsonChange(detail.value)}
             rows={20}
             className={styles['json-input']}
+            disabled={disabled}
         />
     </FormField>
 );
 
+const JsonOutput: React.FC<{ data: any; isLastStep?: boolean }> = ({ data, isLastStep = true }) => {
+    // Parse the nested response
+    let parsedResponse;
+    try {
+        const firstParse = typeof data === 'string' ? JSON.parse(data) : data;
+        if (firstParse.data && typeof firstParse.data === 'string') {
+            parsedResponse = JSON.parse(firstParse.data);
+        } else {
+            parsedResponse = firstParse;
+        }
+    } catch (error) {
+        console.error('Error parsing response:', error);
+        parsedResponse = { statusCode: 500, body: { message: 'Error parsing response' } };
+    }
+
+    const isSuccess = parsedResponse.statusCode === 200;
+    const resultValue = isSuccess 
+        ? (Array.isArray(parsedResponse.body) ? parsedResponse.body[0] : parsedResponse.body)
+        : 'X';  // Show X for failures
+    
+    const errorMessage = !isSuccess ? parsedResponse.body.message : null;
+    
+    return (
+        <SpaceBetween size="m" direction="vertical" alignItems="start">
+            <div className={styles['arrow-container']}>
+                <div className={styles.arrow}>
+                    <Icon name="angle-right" size="big" />
+                </div>
+                <div className={`${styles['step-card']} ${isLastStep ? styles['last-step'] : ''}`}>
+                    <div className={styles['step-title']}>
+                        Predicted Value
+                    </div>
+                    <div className={`${styles['result-circle']} ${!isSuccess ? styles['error-circle'] : ''}`}>
+                        <div className={styles['result-value']}>
+                            {isSuccess ? resultValue : (
+                                <Icon 
+                                    name="status-negative" 
+                                    size="big" 
+                                    variant="error"
+                                />
+                            )}
+                        </div>
+                    </div>
+                    <div className={styles['status-container']}>
+                        <StatusIndicator type={isSuccess ? "success" : "error"}>
+                            {isSuccess ? "Prediction completed" : "Prediction failed"}
+                        </StatusIndicator>
+                    </div>
+                </div>
+            </div>
+            {!isSuccess && errorMessage && (
+                <Alert
+                    type="error"
+                    header="Prediction Error"
+                >
+                    {errorMessage}
+                </Alert>
+            )}
+        </SpaceBetween>
+    );
+};
+
 const Predictions: React.FC = () => {
+    const location = useLocation();
+    const navigationState = location.state as { 
+        selectedModelId?: string;
+        selectedModelVersion?: string;
+    } | undefined;
+
     const [models, setModels] = useState<Model[]>([]);
     const [selectedModel, setSelectedModel] = useState<Model | null>(null);
     const [modelVersions, setModelVersions] = useState<ModelVersion[]>([]);
@@ -127,6 +210,7 @@ const Predictions: React.FC = () => {
     const [adhocInputMode, setAdhocInputMode] = useState<'form' | 'json'>('form');
     const [jsonError, setJsonError] = useState<string | null>(null);
     const [uploadBasePath, setUploadBasePath] = useState<string>('');
+    const [isLoading, setIsLoading] = useState(false);
     const { userInfo } = useUser();
 
     useEffect(() => {
@@ -142,9 +226,18 @@ const Predictions: React.FC = () => {
                 updatedAt: model.updatedAt || null
             })) as Model[];
             setModels(typedModels);
+
+            if (navigationState?.selectedModelId) {
+                const preSelectedModel = typedModels.find(
+                    model => model.id === navigationState.selectedModelId
+                );
+                if (preSelectedModel) {
+                    setSelectedModel(preSelectedModel);
+                }
+            }
         };
         fetchModels();
-    }, []);
+    }, [navigationState?.selectedModelId]);
 
     useEffect(() => {
         const fetchModelVersions = async () => {
@@ -171,7 +264,14 @@ const Predictions: React.FC = () => {
                 const sortedVersions = typedVersions.sort((a, b) => b.version - a.version);
                 setModelVersions(sortedVersions);
 
-                if (sortedVersions.length > 0) {
+                if (navigationState?.selectedModelVersion) {
+                    const preSelectedVersion = sortedVersions.find(
+                        version => version.id === navigationState.selectedModelVersion
+                    );
+                    if (preSelectedVersion) {
+                        setSelectedModelVersion(preSelectedVersion);
+                    }
+                } else if (sortedVersions.length > 0) {
                     setSelectedModelVersion(sortedVersions[0]);
                 }
             }
@@ -180,34 +280,37 @@ const Predictions: React.FC = () => {
         if (selectedModel) {
             fetchModelVersions();
         }
-    }, [selectedModel]);
+    }, [selectedModel, navigationState?.selectedModelVersion]);
 
     useEffect(() => {
         const fetchFeatureNames = async () => {
             if (selectedModelVersion) {
-                const feature_names = await getS3JSONFromBucket(
-                    `${selectedModelVersion.s3OutputPath}/feature_names.json`,
-                    TRAINING_OUTPUT_BUCKET
-                ) as string[];
-                
-                setFeatureNames(Array.isArray(feature_names) ? feature_names : []);
-                const initialInputs = feature_names.reduce<Record<string, string>>((acc, feature) => ({
-                    ...acc,
-                    [feature]: ''
-                }), {});
-                setFeatureInputs(initialInputs);
+                try {
+                    const feature_names = await getS3JSONFromBucket<string[]>(
+                        `${selectedModelVersion.s3OutputPath}/feature_names.json`
+                    );
+                    
+                    setFeatureNames(Array.isArray(feature_names) ? feature_names : []);
+                    const initialInputs = feature_names.reduce<Record<string, string>>((acc, feature) => ({
+                        ...acc,
+                        [feature]: ''
+                    }), {});
+                    setFeatureInputs(initialInputs);
 
-                const template = feature_names.reduce((acc, feature) => ({
-                    ...acc,
-                    [feature]: ''
-                }), {});
-                setJsonInput(JSON.stringify(template, null, 2));
+                    const template = feature_names.reduce((acc, feature) => ({
+                        ...acc,
+                        [feature]: ''
+                    }), {});
+                    setJsonInput(JSON.stringify(template, null, 2));
+                } catch (error) {
+                    console.error('Error fetching feature names:', error);
+                    setFeatureNames([]);
+                }
             }
         };
 
         if (selectedModelVersion) {
             fetchFeatureNames();
-
         }
     }, [selectedModelVersion]);
 
@@ -239,37 +342,73 @@ const Predictions: React.FC = () => {
     };
 
     const handleAdhocInference = async () => {
-        if (!selectedModelVersion) return;
-
-        let inputData: Record<string, string>;
-        if (adhocInputMode === 'json') {
-            const parsed = validateAndParseJSON(jsonInput);
-            if (!parsed) return;
-            inputData = parsed;
-        } else {
-            inputData = featureInputs;
+        if (!selectedModelVersion || !selectedModelVersion.targetFeature || 
+            !selectedModelVersion.s3OutputPath || !userInfo?.username) {
+            console.error('Missing required fields');
+            return;
         }
+        
+        setIsLoading(true);
+        try {
+            let inputData: Record<string, any>;
+            if (adhocInputMode === 'json') {
+                const parsed = validateAndParseJSON(jsonInput);
+                if (!parsed) return;
+                inputData = parsed;
+            } else {
+                inputData = Object.entries(featureInputs).reduce((acc, [key, value]) => ({
+                    ...acc,
+                    [key]: isNaN(Number(value)) ? value : Number(value)
+                }), {});
+            }
 
-        const payload = {
-            modelPath: selectedModelVersion.s3OutputPath,
-            input: inputData,
-            modelVersionId: selectedModelVersion.id
-        };
+            const payload = {
+                modelVersionId: selectedModelVersion.id,
+                basePath: selectedModelVersion.s3OutputPath,
+                targetFeature: selectedModelVersion.targetFeature,
+                submittedBy: userInfo.username,
+                input: JSON.stringify(inputData)
+            };
+            
+            console.log("Inference payload:", payload);
 
-        const response = await client.queries.runModelInference(payload);
-        setResults(response);
+            const response = await client.queries.runModelInference(payload);
+            console.log("Inference response:", response);
+            setResults(response.data);
+        } catch (error) {
+            console.error('Inference error:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleBatchInference = async () => {
-        if (!batchFile || !selectedModelVersion) return;
+        if (!batchFile || !selectedModelVersion || !selectedModelVersion.targetFeature || 
+            !selectedModelVersion.s3OutputPath || !userInfo?.username) {
+            console.error('Missing required fields');
+            return;
+        }
+        
+        setIsLoading(true);
+        try {
+            const payload = {
+                modelVersionId: selectedModelVersion.id,
+                basePath: selectedModelVersion.s3OutputPath,
+                targetFeature: selectedModelVersion.targetFeature,
+                submittedBy: userInfo.username,
+                inputDataPath: `${uploadBasePath}/${batchFile.name}`
+            };
+            
+            console.log("Batch inference payload:", payload);
 
-        const payload = {
-            modelPath: selectedModelVersion.s3OutputPath,
-            inputDataPath: `s3://${PREDICTIONS_OUTPUT_BUCKET}/test_inference/${batchFile.name}`,
-        };
-
-        const response = await client.queries.runModelInference(payload);
-        setResults(response);
+            const response = await client.queries.runModelInference(payload);
+            console.log("Batch inference response:", response);
+            setResults(response.data);
+        } catch (error) {
+            console.error('Batch inference error:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const processFile = async ({ file }: { file: File }) => {
@@ -305,30 +444,41 @@ const Predictions: React.FC = () => {
         <SpaceBetween size="l">
             <Header variant="h1">Run Model Predictions</Header>
             
-            <ModelSelector 
-                models={models}
-                selectedModel={selectedModel}
-                onModelSelect={setSelectedModel}
-            />
-
-            {selectedModel && (
-                <Form>
+            <div style={{ display: 'flex', width: '100%', gap: '24px' }}>
+                <div style={{ 
+                    width: '300px',
+                    minWidth: '300px',
+                    flexShrink: 0
+                }}>
                     <SpaceBetween size="m">
-                        <VersionSelector
-                            modelVersions={modelVersions}
-                            selectedVersion={selectedModelVersion}
-                            onVersionSelect={setSelectedModelVersion}
-                        />
+                        <Container>
+                            <ModelSelector 
+                                models={models}
+                                selectedModel={selectedModel}
+                                onModelSelect={setSelectedModel}
+                            />
+                            
+                            {selectedModel && (
+                                <VersionSelector
+                                    modelVersions={modelVersions}
+                                    selectedVersion={selectedModelVersion}
+                                    onVersionSelect={setSelectedModelVersion}
+                                />
+                            )}
+                        </Container>
 
                         {selectedModelVersion && (
-                            <>
-                                <SpaceBetween size="s">
-                                    <Header variant="h3">Prediction Type</Header>
-                                    <Box>
+                            <Container
+                                header={<Header variant="h2">Prediction Input</Header>}
+                            >
+                                <SpaceBetween size="m">
+                                    <div>
+                                        <Box variant="awsui-key-label">Prediction Type</Box>
                                         <div style={{ 
                                             display: 'flex', 
                                             alignItems: 'center', 
                                             gap: '1rem',
+                                            marginTop: '8px'
                                         }}>
                                             <Box color={isAdhocMode ? 'text-label' : 'text-body-secondary'}>
                                                 Ad-hoc
@@ -336,119 +486,161 @@ const Predictions: React.FC = () => {
                                             <Toggle
                                                 onChange={({ detail }) => setIsAdhocMode(!detail.checked)}
                                                 checked={!isAdhocMode}
+                                                disabled={isLoading}
                                             />
                                             <Box color={!isAdhocMode ? 'text-label' : 'text-body-secondary'}>
                                                 Batch
                                             </Box>
                                         </div>
-                                    </Box>
-                                </SpaceBetween>
+                                    </div>
 
-                                {isAdhocMode ? (
-                                    <>
-                                        <Tabs
-                                            tabs={[
-                                                {
-                                                    label: "Form Input",
-                                                    id: "form",
-                                                    content: (
-                                                        <AdhocForm
-                                                            featureNames={featureNames}
-                                                            featureInputs={featureInputs}
-                                                            onFeatureInputChange={(feature, value) => 
-                                                                setFeatureInputs(prev => ({
-                                                                    ...prev,
-                                                                    [feature]: value
-                                                                }))
-                                                            }
-                                                        />
-                                                    )
-                                                },
-                                                {
-                                                    label: "JSON Input",
-                                                    id: "json",
-                                                    content: (
-                                                        <JsonInput
-                                                            jsonInput={jsonInput}
-                                                            jsonError={jsonError}
-                                                            onJsonChange={(value) => {
-                                                                setJsonInput(value);
-                                                                validateAndParseJSON(value);
-                                                            }}
-                                                        />
-                                                    )
+                                    {isAdhocMode ? (
+                                        <SpaceBetween size="m">
+                                            <Tabs
+                                                tabs={[
+                                                    {
+                                                        label: "Form Input",
+                                                        id: "form",
+                                                        content: (
+                                                            <AdhocForm
+                                                                featureNames={featureNames}
+                                                                featureInputs={featureInputs}
+                                                                onFeatureInputChange={(feature, value) => 
+                                                                    setFeatureInputs(prev => ({
+                                                                        ...prev,
+                                                                        [feature]: value
+                                                                    }))
+                                                                }
+                                                                disabled={isLoading}
+                                                            />
+                                                        )
+                                                    },
+                                                    {
+                                                        label: "JSON Input",
+                                                        id: "json",
+                                                        content: (
+                                                            <JsonInput
+                                                                jsonInput={jsonInput}
+                                                                jsonError={jsonError}
+                                                                onJsonChange={(value) => {
+                                                                    setJsonInput(value);
+                                                                    validateAndParseJSON(value);
+                                                                }}
+                                                                disabled={isLoading}
+                                                            />
+                                                        )
+                                                    }
+                                                ]}
+                                                onChange={({ detail }) => 
+                                                    setAdhocInputMode(detail.activeTabId as 'form' | 'json')
                                                 }
-                                            ]}
-                                            onChange={({ detail }) => 
-                                                setAdhocInputMode(detail.activeTabId as 'form' | 'json')
-                                            }
-                                        />
-
-                                        <Button 
-                                            onClick={handleAdhocInference} 
-                                            disabled={!selectedModelVersion || (adhocInputMode === 'json' && !!jsonError)}
-                                        >
-                                            Run Ad-hoc Prediction
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <SpaceBetween size="m">
-                                        <FormField 
-                                            label="Upload Batch File"
-                                            description="Upload a CSV file containing the data for batch predictions."
-                                        >
-                                            <Box margin={{ bottom: 's' }}>
-                                                <FileUploader
-                                                    path={uploadBasePath}
-                                                    acceptedFileTypes={['.csv']}
-                                                    maxFileCount={1}
-                                                    processFile={processFile}
-                                                    accessLevel="private"
-                                                />
-                                            </Box>
-                                        </FormField>
-                                        
-                                        {batchFile && previewData.length > 0 && (
-                                            <DatasetVisualizer
-                                                dataset={{
-                                                    id: 'preview',
-                                                    name: batchFile.name,
-                                                    description: 'Batch inference preview',
-                                                    owner: '',
-                                                    projectId: '',
-                                                }}
-                                                previewData={previewData}
-                                                columns={columns}
-                                                version={{
-                                                    uploadDate: new Date().toISOString(),
-                                                    size: batchFile.size,
-                                                    rowCount: previewData.length,
-                                                    version: 1
-                                                }}
                                             />
-                                        )}
 
-                                        <Button 
-                                            onClick={handleBatchInference} 
-                                            disabled={!selectedModelVersion || !batchFile}
-                                        >
-                                            Run Batch Inference
-                                        </Button>
-                                    </SpaceBetween>
-                                )}
-                            </>
+                                            <Button 
+                                                onClick={handleAdhocInference} 
+                                                disabled={!selectedModelVersion || 
+                                                     (adhocInputMode === 'json' && !!jsonError) || 
+                                                     isLoading}
+                                                loading={isLoading}
+                                            >
+                                                Run Ad-hoc Prediction
+                                            </Button>
+                                        </SpaceBetween>
+                                    ) : (
+                                        <SpaceBetween size="m">
+                                            <FormField 
+                                                label="Upload Batch File"
+                                                description="Upload a CSV file containing the data for batch predictions."
+                                            >
+                                                <Box margin={{ bottom: 's' }}>
+                                                    <FileUploader
+                                                        path={uploadBasePath}
+                                                        acceptedFileTypes={['.csv']}
+                                                        maxFileCount={1}
+                                                        processFile={processFile}
+                                                        accessLevel="private"
+                                                    />
+                                                </Box>
+                                            </FormField>
+                                            
+                                            {batchFile && previewData.length > 0 && (
+                                                <DatasetVisualizer
+                                                    dataset={{
+                                                        id: 'preview',
+                                                        name: batchFile.name,
+                                                        description: 'Batch inference preview',
+                                                        owner: '',
+                                                        projectId: '',
+                                                    }}
+                                                    previewData={previewData}
+                                                    columns={columns}
+                                                    version={{
+                                                        uploadDate: new Date().toISOString(),
+                                                        size: batchFile.size,
+                                                        rowCount: previewData.length,
+                                                        version: 1
+                                                    }}
+                                                />
+                                            )}
+
+                                            <Button 
+                                                onClick={handleBatchInference} 
+                                                disabled={!selectedModelVersion || !batchFile || isLoading}
+                                                loading={isLoading}
+                                            >
+                                                Run Batch Inference
+                                            </Button>
+                                        </SpaceBetween>
+                                    )}
+                                </SpaceBetween>
+                            </Container>
                         )}
                     </SpaceBetween>
-                </Form>
-            )}
+                </div>
 
-            {results && (
-                <FormField label="Results">
-                    <pre style={{ maxHeight: '200px', overflow: 'auto' }}>
-                        {JSON.stringify(results, null, 2)}
-                    </pre>
-                </FormField>
-            )}
+                <div style={{ 
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden'
+                }}>
+                    <SpaceBetween size="m">
+                        {selectedModelVersion && (
+                            <div style={{ overflowX: 'auto' }}>
+                                <ModelPipelineVisualizer 
+                                    modelVersion={selectedModelVersion}
+                                    expanded={false}
+                                    showAlternatives={false}
+                                />
+                            </div>
+                        )}
+
+                        <Container
+                            header={<Header variant="h2">Model Output</Header>}
+                        >
+                            {isLoading ? (
+                                <Box textAlign="left" padding="l">
+                                    <SpaceBetween size="m" direction="vertical" alignItems="flex-start">
+                                        <Spinner size="large" />
+                                        <Box variant="p">
+                                            Running inference...
+                                        </Box>
+                                    </SpaceBetween>
+                                </Box>
+                            ) : results ? (
+                                <JsonOutput data={results} />
+                            ) : (
+                                <Box 
+                                    textAlign="left"
+                                    color="text-body-secondary" 
+                                    padding="l"
+                                >
+                                    No results yet. Run a prediction to see the output.
+                                </Box>
+                            )}
+                        </Container>
+                    </SpaceBetween>
+                </div>
+            </div>
         </SpaceBetween>
     );
 };

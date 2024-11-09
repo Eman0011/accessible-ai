@@ -232,11 +232,13 @@ const schema = a.schema({
   runModelInference: a
     .query()
     .arguments({
-      modelPath: a.string(),
+      modelVersionId: a.string().required(),
+      targetFeature: a.string().required(),
+      basePath: a.string().required(),
+      submittedBy: a.string().required(),
       input: a.json(),
       inputDataPath: a.string(),
       outputDataPath: a.string(),
-      modelVersionId: a.string(),
     })
     .returns(a.json())
     .handler(a.handler.function(runModelInference))

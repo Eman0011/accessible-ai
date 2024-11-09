@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import React, { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
+import { TRAINING_OUTPUT_BUCKET } from '../../../../Config';
 import amplify_config from '../../../amplify_outputs.json';
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { useUser } from '../../../contexts/UserContext';
@@ -14,7 +15,7 @@ import DatasetVisualizer from '../../common/DatasetVisualizer';
 
 import {
   Button,
-  Form,
+  Container,
   FormField,
   Header,
   Input,
@@ -23,6 +24,8 @@ import {
   SpaceBetween,
   Spinner
 } from '@cloudscape-design/components';
+
+import styles from './CreateModel.module.css';
 
 const client = generateClient<Schema>();
 
@@ -54,6 +57,8 @@ const CreateModel: React.FC = () => {
   const [selectedDatasetVersions, setSelectedDatasetVersions] = useState<DatasetVersion[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const initialDataset = location.state?.initialDataset;
+
   useEffect(() => {
     console.log('Initial useEffect - currentProject:', currentProject?.id);
     if (currentProject) {
@@ -78,6 +83,33 @@ const CreateModel: React.FC = () => {
       }
     }
   }, [existingModels, location.state]);
+
+  useEffect(() => {
+    console.log('Location state:', location.state);
+    console.log('Initial dataset:', initialDataset);
+    
+    if (initialDataset) {
+        // Set the initial dataset
+        setSelectedDataset({
+            id: initialDataset.datasetId,
+            name: initialDataset.datasetName,
+            description: '',  // Add required fields
+            owner: '',
+            projectId: currentProject?.id || '',
+            createdAt: null,
+            updatedAt: null
+        });
+        
+        // Set version information
+        setSelectedDatasetName(initialDataset.datasetName);
+        setSelectedDatasetVersion(initialDataset.version);
+        
+        // Fetch dataset versions for the selected dataset
+        if (initialDataset.datasetId) {
+            fetchDatasetVersions(initialDataset.datasetId);
+        }
+    }
+}, [location.state, currentProject]);
 
   const fetchDatasets = async () => {
     try {
@@ -301,7 +333,7 @@ const CreateModel: React.FC = () => {
         ? Math.max(...modelVersions.map(v => v.version)) + 1 
         : 1;
 
-      const s3OutputPath = generateStoragePath({
+      const s3OutputPathKey = generateStoragePath({
         userId: userInfo.userId,
         projectId: currentProject?.id || '',
         resourceType: 'models',
@@ -317,7 +349,7 @@ const CreateModel: React.FC = () => {
         status: 'DRAFT',
         targetFeature: selectedColumn || '',
         fileUrl: fileUrl,
-        s3OutputPath: s3OutputPath,
+        s3OutputPath: `${TRAINING_OUTPUT_BUCKET}/${s3OutputPathKey}`,
         datasetVersionId: datasetVersion.id,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -470,182 +502,174 @@ const CreateModel: React.FC = () => {
 
   return (
     <SpaceBetween size="l">
-      <Header variant="h1">Create New Model</Header>
-      <Form>
-        <SpaceBetween size="m">
-          <FormField label="Select Existing Model">
-            <Select
-              selectedOption={
-                selectedModelId ? {
-                  label: selectedModelId === '+ Create new model' 
-                    ? '+ Create new model'
-                    : existingModels.find(m => m.id === selectedModelId)?.name || '',
-                  value: selectedModelId
-                } : null
-              }
-              onChange={({ detail }) => {
-                console.log('Model selection changed:', detail.selectedOption);
-                const newValue = detail.selectedOption.value || null;
-                setSelectedModelId(newValue);
-                
-                if (newValue === '+ Create new model') {
-                  setIsCreatingNewModel(true);
-                  setModelName('');  // Clear model name when creating new
-                } else {
-                  const selectedModel = existingModels.find(m => m.id === newValue);
-                  if (selectedModel) {
-                    setModelName(selectedModel.name);
-                  }
-                }
-              }}
-              options={[
-                { label: '+ Create new model', value: '+ Create new model' },
-                ...existingModels.map(model => ({
-                  label: model.name || 'Unnamed Model',
-                  value: model.id
-                }))
-              ]}
-              placeholder="Select an existing model"
-            />
-          </FormField>
-          {isCreatingNewModel && selectedModelId === '+ Create new model' && (
-            <Modal
-              onDismiss={() => {
-                setIsCreatingNewModel(false);
-                setSelectedModelId(null); // Reset selection when dismissing
-              }}
-              visible={true}
-              header="Create New Model"
-            >
-              <Form>
-                <SpaceBetween size="m">
-                  <FormField label="Model Name">
-                    <Input
-                      value={newModelName}
-                      onChange={({ detail }) => setNewModelName(detail.value)}
-                      placeholder="Enter model name"
-                    />
-                  </FormField>
-                  <FormField label="Description">
-                    <Input
-                      value={newModelDescription}
-                      onChange={({ detail }) => setNewModelDescription(detail.value)}
-                      placeholder="Enter model description"
-                    />
-                  </FormField>
-                  <Button
-                    variant="primary"
-                    onClick={createNewModel}
-                    disabled={!newModelName || !newModelDescription}
-                  >
-                    Create Model
-                  </Button>
-                </SpaceBetween>
-              </Form>
-            </Modal>
-          )}
-          <FormField label="Model Name">
-            <Input
-              value={modelName}
-              onChange={({ detail }) => setModelName(detail.value)}
-              placeholder="Enter model name"
-              disabled={isModelCreationSubmitted || selectedModelId !== null} // Disable if an existing model is selected
-            />
-          </FormField>
-          <FormField label="Select Dataset">
-            <Select
-              placeholder="Choose a dataset"
-              options={[
-                { label: '+ Create new dataset', value: '+ Create new dataset' },
-                ...uniqueDatasetNames.map(name => ({ label: name, value: name }))
-              ]}
-              selectedOption={selectedDatasetName ? { label: selectedDatasetName, value: selectedDatasetName } : null}
-              onChange={({ detail }) => handleDatasetNameChange(detail.selectedOption.value || '')}
-              disabled={isModelCreationSubmitted}
-            />
-          </FormField>
-          {selectedDatasetName && (
-            <FormField label="Select Dataset Version">
-              <Select
-                placeholder="Choose a version"
-                options={selectedDatasetVersions
-                  .map(version => ({
-                    label: `Version ${version.version}`,
-                    value: version.version.toString()
-                  }))
-                }
-                selectedOption={selectedDatasetVersion ? 
-                  { 
-                    label: `Version ${selectedDatasetVersion}`, 
-                    value: selectedDatasetVersion.toString() 
-                  } : null
-                }
-                onChange={({ detail }) => handleDatasetVersionChange(parseInt(detail.selectedOption.value || '0'))}
-                disabled={isModelCreationSubmitted}
-              />
-            </FormField>
-          )}
-          {selectedDataset && (
-            isLoadingPreview ? (
-              <Spinner size="large" />
-            ) : (
-              <DatasetVisualizer
-                dataset={selectedDataset}
-                previewData={previewData}
-                columns={columns.map(col => ({
-                  id: col,
-                  header: col,
-                  cell: (item: any) => item[col],
-                }))}
-                version={datasetVersions.find(v => 
-                  v.datasetId === selectedDataset.id && 
-                  v.version === selectedDatasetVersion
-                )}
-                highlightedColumn={selectedColumn}
-              />
-            )
-          )}
-          {selectedDataset && columns.length > 0 && (
-            <FormField label="Target Column">
-              <Select
-                placeholder="Select target column"
-                options={columns.map(col => ({ label: col, value: col }))}
-                selectedOption={selectedColumn ? { label: selectedColumn, value: selectedColumn } : null}
-                onChange={({ detail }) => setSelectedColumn(detail.selectedOption.value || null)}
-                disabled={isModelCreationSubmitted}
-              />
-            </FormField>
-          )}
-          <Button
-            variant="primary"
-            onClick={handleModelCreation}
-            disabled={
-              !selectedDataset || 
-              !selectedColumn || 
-              (!selectedModelId && !modelName) || 
-              isModelCreationSubmitted ||
-              isUserLoading
-            }
-            loading={isModelCreationSubmitted}
-          >
-            Create Model and Start Training
-          </Button>
-        </SpaceBetween>
-      </Form>
-      {isCreatingNewDataset && (
-        <Modal
-          onDismiss={() => setIsCreatingNewDataset(false)}
-          visible={true}
-          header="Create New Dataset"
+        <Header variant="h1">Create New Model</Header>
+        
+        <Container
+            header={<Header variant="h2">Model Configuration</Header>}
         >
-          {currentProject && (
-            <DatasetUploader
-              onDatasetCreated={handleDatasetCreated}
-              projectId={currentProject.id}
-            />
-          )}
-        </Modal>
-      )}
+            <SpaceBetween size="l">
+                <FormField label="Select Existing Model">
+                    <Select
+                        selectedOption={
+                            selectedModelId === null && modelName ? 
+                                { label: '+ Create new model', value: '+ Create new model' } :
+                            selectedModelId ? {
+                                label: existingModels.find(m => m.id === selectedModelId)?.name || '',
+                                value: selectedModelId
+                            } : null
+                        }
+                        onChange={({ detail }) => {
+                            console.log('Model selection changed:', detail.selectedOption);
+                            const newValue = detail.selectedOption.value || null;
+                            
+                            if (newValue === '+ Create new model') {
+                                setIsCreatingNewModel(true);
+                                setSelectedModelId(null);  // Clear selected model ID
+                                setModelName('');  // Clear model name
+                            } else {
+                                setSelectedModelId(newValue);
+                                const selectedModel = existingModels.find(m => m.id === newValue);
+                                if (selectedModel) {
+                                    setModelName(selectedModel.name);
+                                }
+                            }
+                        }}
+                        options={[
+                            { label: '+ Create new model', value: '+ Create new model' },
+                            ...existingModels.map(model => ({
+                                label: model.name || 'Unnamed Model',
+                                value: model.id
+                            }))
+                        ]}
+                        placeholder="+ Create new model"
+                    />
+                </FormField>
+
+                {(!selectedModelId || selectedModelId === '+ Create new model') && (
+                    <SpaceBetween size="m">
+                        <FormField label="Model Name">
+                            <Input
+                                value={modelName}
+                                onChange={({ detail }) => setModelName(detail.value)}
+                                placeholder="Enter model name"
+                                disabled={isModelCreationSubmitted}
+                            />
+                        </FormField>
+                        
+                        <FormField label="Model Description">
+                            <Input
+                                value={newModelDescription}
+                                onChange={({ detail }) => setNewModelDescription(detail.value)}
+                                placeholder="Enter model description"
+                                disabled={isModelCreationSubmitted}
+                            />
+                        </FormField>
+                    </SpaceBetween>
+                )}
+
+                <div className={styles.divider} />
+
+                <FormField label="Select Dataset">
+                    <Select
+                        placeholder="Choose a dataset"
+                        options={[
+                            { label: '+ Create new dataset', value: '+ Create new dataset' },
+                            ...uniqueDatasetNames.map(name => ({ label: name, value: name }))
+                        ]}
+                        selectedOption={selectedDatasetName ? { label: selectedDatasetName, value: selectedDatasetName } : null}
+                        onChange={({ detail }) => handleDatasetNameChange(detail.selectedOption.value || '')}
+                        disabled={isModelCreationSubmitted}
+                    />
+                </FormField>
+
+                {selectedDatasetName && (
+                    <FormField label="Select Dataset Version">
+                        <Select
+                            placeholder="Choose a version"
+                            options={selectedDatasetVersions
+                                .map(version => ({
+                                    label: `Version ${version.version}`,
+                                    value: version.version.toString()
+                                }))
+                            }
+                            selectedOption={selectedDatasetVersion ? 
+                                { 
+                                    label: `Version ${selectedDatasetVersion}`, 
+                                    value: selectedDatasetVersion.toString() 
+                                } : null
+                            }
+                            onChange={({ detail }) => handleDatasetVersionChange(parseInt(detail.selectedOption.value || '0'))}
+                            disabled={isModelCreationSubmitted}
+                        />
+                    </FormField>
+                )}
+
+                {selectedDataset && (
+                    <div className={styles['preview-container']}>
+                        {isLoadingPreview ? (
+                            <Spinner size="large" />
+                        ) : (
+                            <DatasetVisualizer
+                                dataset={selectedDataset}
+                                previewData={previewData}
+                                columns={columns.map(col => ({
+                                    id: col,
+                                    header: col,
+                                    cell: (item: any) => item[col],
+                                }))}
+                                version={datasetVersions.find(v => 
+                                    v.datasetId === selectedDataset.id && 
+                                    v.version === selectedDatasetVersion
+                                )}
+                                highlightedColumn={selectedColumn}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {selectedDataset && columns.length > 0 && (
+                    <FormField label="Target Column">
+                        <Select
+                            placeholder="Select target column"
+                            options={columns.map(col => ({ label: col, value: col }))}
+                            selectedOption={selectedColumn ? { label: selectedColumn, value: selectedColumn } : null}
+                            onChange={({ detail }) => setSelectedColumn(detail.selectedOption.value || null)}
+                            disabled={isModelCreationSubmitted}
+                        />
+                    </FormField>
+                )}
+
+                <Button
+                    variant="primary"
+                    onClick={handleModelCreation}
+                    disabled={
+                        !selectedDataset || 
+                        !selectedColumn || 
+                        (!selectedModelId && !modelName) || 
+                        isModelCreationSubmitted ||
+                        isUserLoading
+                    }
+                    loading={isModelCreationSubmitted}
+                >
+                    Create Model and Start Training
+                </Button>
+            </SpaceBetween>
+        </Container>
+
+        {isCreatingNewDataset && (
+            <Modal
+                onDismiss={() => setIsCreatingNewDataset(false)}
+                visible={true}
+                header="Create New Dataset"
+            >
+                {currentProject && (
+                    <DatasetUploader
+                        onDatasetCreated={handleDatasetCreated}
+                        projectId={currentProject.id}
+                    />
+                )}
+            </Modal>
+        )}
     </SpaceBetween>
   );
 };
