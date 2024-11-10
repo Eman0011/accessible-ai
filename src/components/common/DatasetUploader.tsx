@@ -19,6 +19,7 @@ import { useUser } from '../../contexts/UserContext';
 import { Dataset } from '../../types/models';
 import { generateStoragePath, validateUserAccess } from '../../utils/storageUtils';
 import DatasetVisualizer from './DatasetVisualizer';
+import { useNavigate } from 'react-router-dom';
 
 const client = generateClient<Schema>();
 
@@ -48,6 +49,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
   const [isCreatingNewDataset, setIsCreatingNewDataset] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
   const [uploadBasePath, setUploadBasePath] = useState<string>('');
+  const navigate = useNavigate();
 
   useEffect(() => { 
     if (file && !datasetName) {
@@ -108,7 +110,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
   };
 
   const processFile = async ({ file }: { file: File }) => {
-    console.log("processFile started", { fileName: file.name, fileSize: file.size });
+    console.debug("processFile started", { fileName: file.name, fileSize: file.size });
     setFile(file);
     setIsFileSelected(true);
     setError(null);
@@ -137,7 +139,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
             const avgRowSize = sampleSize / previewData.length;
             const estimatedRows = Math.round(file.size / avgRowSize);
             setEstimatedRowCount(estimatedRows);
-            console.log("File processing complete", { estimatedRows, previewRowCount: previewData.length });
+            console.debug("File processing complete", { estimatedRows, previewRowCount: previewData.length });
             // Start row counting
             startRowCounting(file);
             resolve({ file, key: `${file.name}` });
@@ -254,6 +256,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         const { data: updatedDataset } = await client.models.Dataset.get({ id: targetDatasetId });
         onDatasetCreated(updatedDataset as unknown as Dataset);
         resetForm();
+        navigate(`/datasets/${targetDatasetId}`);
       }
     } catch (error) {
       console.error('Error in dataset creation process:', error);

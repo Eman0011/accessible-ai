@@ -45,7 +45,7 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
       status: 'SUBMITTED',
     };
   } catch (error) {
-    console.error(error);
+    console.error('Training error:', error);
     throw new Error(`Failed to submit Batch job: ${error}`);
   }
 };

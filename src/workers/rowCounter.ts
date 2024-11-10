@@ -1,6 +1,8 @@
-console.log('Row counter worker script loaded');
-
 import Papa from 'papaparse';
+import configureLogging from '../utils/LogConfig';
+
+// Configure logging for worker
+configureLogging('worker');
 
 const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
 
@@ -10,7 +12,7 @@ self.onmessage = (event) => {
     let rowCount = 0;
     let offset = 0;
 
-    console.log('Worker: Starting row count', { fileName: file.name, fileSize: file.size });
+    console.debug('Worker: Starting row count', { fileName: file.name, fileSize: file.size });
 
     function parseChunk() {
       const chunk = file.slice(offset, offset + CHUNK_SIZE);
@@ -21,7 +23,7 @@ self.onmessage = (event) => {
         chunk: (results) => {
           rowCount += results.data.length;
           if (rowCount % 10000 === 0) {
-            console.log(`Worker: Counted ${rowCount} rows`);
+            console.debug(`Worker: Counted ${rowCount} rows`);
             self.postMessage({ type: 'progress', count: rowCount });
           }
         },
@@ -31,7 +33,7 @@ self.onmessage = (event) => {
             // Schedule the next chunk parsing
             setTimeout(parseChunk, 0);
           } else {
-            console.log(`Worker: Finished counting. Total rows: ${rowCount}`);
+            console.debug(`Worker: Finished counting. Total rows: ${rowCount}`);
             self.postMessage({ type: 'rowCount', count: rowCount });
           }
         },
@@ -44,7 +46,7 @@ self.onmessage = (event) => {
 
     parseChunk();
   } else {
-    console.error('Worker: Unknown message type', event.data.type);
+    console.debug('Worker: Unknown message type', event.data.type);
   }
 };
 

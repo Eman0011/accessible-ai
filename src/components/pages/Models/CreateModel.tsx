@@ -12,6 +12,7 @@ import { Dataset, DatasetVersion, Model, TrainingJobResult } from '../../../type
 import { generateStoragePath } from '../../../utils/storageUtils';
 import DatasetUploader from '../../common/DatasetUploader';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
+import { getCSVFromCache, setCSVInCache } from '../../../utils/CacheUtils';
 
 import {
   Button,
@@ -261,44 +262,62 @@ const CreateModel: React.FC = () => {
   const fetchDatasetColumns = async (dataset: Dataset) => {
     setIsLoadingPreview(true);
     try {
-      console.log("Fetching dataset columns for dataset:", dataset);
-      
-      if (!dataset.s3Key) {
-        throw new Error("Dataset s3Path is undefined");
-      }
-
-      const { body } = await downloadData({
-        path: dataset.s3Key,
-        options: {
-          bytesRange: {
-            start: 0,
-            end: 102400 // 100 KB
-          },
+        console.debug("Fetching dataset columns for dataset:", dataset);
+        
+        if (!dataset.s3Key) {
+            throw new Error("Dataset s3Path is undefined");
+            return;
         }
-      }).result;
 
-      const fileContent = await body.text();
-
-      // Parse the CSV content
-      Papa.parse(fileContent, {
-        header: true,
-        preview: 20,
-        complete: (results) => {
-          if (results.meta && results.meta.fields) {
-            setColumns(results.meta.fields);
-            setPreviewData(results.data);
-          }
-        },
-        error: (error: Error) => {
-          console.error('Error parsing CSV:', error);
+        // Try to get from cache first
+        const cachedData = await getCSVFromCache(dataset.s3Key, { preview: true });
+        if (cachedData) {
+            setColumns(cachedData.meta.fields || []);
+            setPreviewData(cachedData.data);
+            setIsLoadingPreview(false);
+            return;
         }
-      });
+
+        const { body } = await downloadData({
+            path: dataset.s3Key,
+            options: {
+                bytesRange: {
+                    start: 0,
+                    end: 102400 // 100 KB
+                },
+            }
+        }).result;
+
+        const fileContent = await body.text();
+
+        Papa.parse(fileContent, {
+            header: true,
+            preview: 20,
+            complete: (results) => {
+                if (results.meta && results.meta.fields) {
+                    setColumns(results.meta.fields);
+                    setPreviewData(results.data);
+
+                    // Only cache if we have a valid s3Key
+                    if (dataset.s3Key) {
+                        setCSVInCache(dataset.s3Key, {
+                            data: results.data,
+                            meta: results.meta,
+                            preview: true
+                        }, { preview: true });
+                    }
+                }
+            },
+            error: (error: Error) => {
+                console.error('Error parsing CSV:', error);
+            }
+        });
     } catch (error) {
-      console.error('Error fetching dataset columns:', error);
+        console.error('Error fetching dataset columns:', error);
     } finally {
-      setIsLoadingPreview(false);
+        setIsLoadingPreview(false);
     }
-  };
+};
 
   const handleDatasetCreated = (dataset: Dataset) => {
     setDatasets([...datasets, dataset]);

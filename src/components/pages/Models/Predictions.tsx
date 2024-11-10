@@ -212,6 +212,7 @@ const Predictions: React.FC = () => {
     const [uploadBasePath, setUploadBasePath] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const { userInfo } = useUser();
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchModels = async () => {
@@ -325,7 +326,7 @@ const Predictions: React.FC = () => {
                 version: selectedModelVersion.version,
                 fileName: timestamp
             });
-            console.log("uploadBasePath", basePath);
+            console.debug("uploadBasePath", basePath);
             setUploadBasePath(basePath);
         }
     }, [selectedModelVersion, selectedModel, userInfo]);
@@ -344,7 +345,7 @@ const Predictions: React.FC = () => {
     const handleAdhocInference = async () => {
         if (!selectedModelVersion || !selectedModelVersion.targetFeature || 
             !selectedModelVersion.s3OutputPath || !userInfo?.username) {
-            console.error('Missing required fields');
+            console.debug('Missing required fields');
             return;
         }
         
@@ -370,10 +371,10 @@ const Predictions: React.FC = () => {
                 input: JSON.stringify(inputData)
             };
             
-            console.log("Inference payload:", payload);
+            console.debug("Inference payload:", payload);
 
             const response = await client.queries.runModelInference(payload);
-            console.log("Inference response:", response);
+            console.debug("Inference response:", response);
             setResults(response.data);
         } catch (error) {
             console.error('Inference error:', error);
@@ -385,7 +386,7 @@ const Predictions: React.FC = () => {
     const handleBatchInference = async () => {
         if (!batchFile || !selectedModelVersion || !selectedModelVersion.targetFeature || 
             !selectedModelVersion.s3OutputPath || !userInfo?.username) {
-            console.error('Missing required fields');
+            console.debug('Missing required fields');
             return;
         }
         
@@ -399,43 +400,51 @@ const Predictions: React.FC = () => {
                 inputDataPath: `${uploadBasePath}/${batchFile.name}`
             };
             
-            console.log("Batch inference payload:", payload);
+            console.debug("Batch inference payload:", payload);
 
             const response = await client.queries.runModelInference(payload);
-            console.log("Batch inference response:", response);
+            console.debug("Batch inference response:", response);
             setResults(response.data);
         } catch (error) {
-            console.error('Batch inference error:', error);
+            console.debug('Batch inference error:', error);
         } finally {
             setIsLoading(false);
         }
     };
 
+    const updateTable = (data: any[]) => {
+        if (!data.length) return;
+        
+        const cols = Object.keys(data[0]).map(field => ({
+            id: field,
+            header: field,
+            cell: (item: any) => item[field]
+        }));
+        setColumns(cols);
+        setPreviewData(data);
+    };
+
     const processFile = async ({ file }: { file: File }) => {
-        console.log("processFile started", { fileName: file.name, fileSize: file.size });
+        console.debug("processFile started", { fileName: file.name, fileSize: file.size });
         setBatchFile(file);
+        setError(null);
 
         return new Promise<{ file: File; key: string }>((resolve, reject) => {
             Papa.parse(file, {
-                header: true,
                 preview: 10,
+                header: true,
                 skipEmptyLines: true,
                 complete: (results) => {
                     if (results.meta && results.meta.fields) {
-                        setColumns(results.meta.fields.map(field => ({
-                            id: field,
-                            header: field,
-                            cell: (item: any) => item[field]
-                        })));
-                        setPreviewData(results.data);
+                        updateTable(results.data);
+                        resolve({ file, key: file.name });
                     }
-                    console.log("File processing complete", { previewRowCount: results.data.length });
-                    resolve({ file, key: file.name });
                 },
                 error: (error) => {
                     console.error('Error parsing file:', error);
+                    setError(`Error parsing file: ${error.message}`);
                     reject(error);
-                }
+                },
             });
         });
     };

@@ -30,7 +30,7 @@ export const getS3JSONFromBucket = async <T>(s3Path: string): Promise<T> => {
 
   try {
     const { bucket, key } = parseS3Path(s3Path);
-    console.log('Fetching from Bucket:', bucket, 'Key:', key);
+    console.debug('Fetching from Bucket:', bucket, 'Key:', key);
     const s3Client = await getS3Client();
     const command = new GetObjectCommand({
       Bucket: bucket,

@@ -31,7 +31,7 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
       outputDataPath
     };
 
-    console.log('Invoking inference lambda with payload:', JSON.stringify(payload, null, 2));
+    console.debug('Inference request received:', event);
 
     const lambdaResponse = await lambda.invoke({
       FunctionName: LAMBDA_INFERENCE_FUNCTION,
@@ -39,7 +39,9 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
       Payload: JSON.stringify(payload)
     }).promise();
 
-    console.log('Lambda response:', lambdaResponse);
+    console.debug('Model loaded successfully');
+
+    console.debug('Inference completed:', lambdaResponse);
 
     if (lambdaResponse.FunctionError) {
       throw new Error(`Lambda execution failed: ${lambdaResponse.FunctionError}`);

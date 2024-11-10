@@ -21,6 +21,7 @@ import type { Schema } from '../../../../amplify/data/resource';
 import { Dataset, DatasetVersion } from '../../../types/models';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
 import { formatBytes } from '../../../utils/formatUtils';
+import { getCSVFromCache, setCSVInCache } from '../../../utils/CacheUtils';
 
 const client = generateClient<Schema>();
 
@@ -143,7 +144,22 @@ const DatasetDetails: React.FC = () => {
   const fetchVersionPreview = async (version: DatasetVersion) => {
     setLoadingPreview(true);
     try {
-      console.log('Fetching version preview for', version.s3Key);
+      console.debug('Fetching version preview for', version.s3Key);
+      
+      // Try to get from cache first
+      const cachedData = await getCSVFromCache(version.s3Key, { preview: true });
+      if (cachedData) {
+        setColumns(cachedData.meta.fields?.map(field => ({
+          id: field,
+          header: field,
+          cell: (item: any) => item[field]
+        })) || []);
+        setPreviewData(cachedData.data);
+        setLoadingPreview(false);
+        return;
+      }
+
+      // If not in cache, fetch from S3
       const { body } = await downloadData({
         path: version.s3Key,
         options: {
@@ -161,12 +177,20 @@ const DatasetDetails: React.FC = () => {
         preview: 10,
         complete: (results) => {
           if (results.meta && results.meta.fields) {
-            setColumns(results.meta.fields.map(field => ({
+            const columns = results.meta.fields.map(field => ({
               id: field,
               header: field,
               cell: (item: any) => item[field]
-            })));
+            }));
+            setColumns(columns);
             setPreviewData(results.data);
+
+            // Cache the parsed results
+            setCSVInCache(version.s3Key, {
+              data: results.data,
+              meta: results.meta,
+              preview: true
+            }, { preview: true });
           }
         },
         error: (error: Error) => {
