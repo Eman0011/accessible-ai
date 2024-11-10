@@ -4,7 +4,13 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  worker: {
-    format: 'es'
+  optimizeDeps: {
+    exclude: ['aws-sdk']
+  },
+  resolve: {
+    alias: {
+      'core-js': 'core-js@3.36.0',
+      'glob': 'glob@10.3.10'
+    }
   }
 })
