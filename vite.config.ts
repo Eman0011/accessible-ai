@@ -9,7 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'core-js': 'core-js@3.36.0',
+      'core-js': 'core-js@2.6.12',
       'glob': 'glob@10.3.10'
     }
   }

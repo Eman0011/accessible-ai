@@ -21,8 +21,7 @@
     "@babel/runtime": "^7.24.0",
     "bootstrap": "^5.3.3",
     "chart.js": "^4.4.4",
-    "core-js": "^3.36.0",
-    "core-js-compat": "^3.36.0",
+    "core-js": "^2.6.12",
     "framer-motion": "^11.2.4",
     "gsap": "^3.12.5",
     "lodash": "^4.17.21",
@@ -67,6 +66,11 @@
     "rimraf": "^5.0.5",
     "@babel/plugin-proposal-class-properties": "@babel/plugin-transform-class-properties@^7.23.3",
     "@babel/plugin-proposal-object-rest-spread": "@babel/plugin-transform-object-rest-spread@^7.24.0",
-    "core-js": "^3.36.0"
+    "babel-runtime": {
+      "core-js": "^2.6.12"
+    }
+  },
+  "peerDependencies": {
+    "core-js": "^2.6.12"
   }
 }
