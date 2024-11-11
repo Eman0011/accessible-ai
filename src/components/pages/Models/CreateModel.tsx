@@ -5,7 +5,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
 import { TRAINING_OUTPUT_BUCKET } from '../../../../Config';
-import amplify_config from '../../../amplify_outputs.json';
+import amplify_config from '../../../../amplify_outputs.json';
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { useUser } from '../../../contexts/UserContext';
 import { Dataset, DatasetVersion, Model, TrainingJobResult } from '../../../types/models';
