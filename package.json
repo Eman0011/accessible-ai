@@ -75,10 +75,6 @@
     "src",
     "types"
   ],
-  "engines": {
-    "node": ">=20",
-    "npm": ">=10"
-  },
   "resolutions": {
     "core-js": "^3.36.0",
     "babel-runtime/core-js": "^3.36.0"
