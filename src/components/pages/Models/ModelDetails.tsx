@@ -138,6 +138,10 @@ const ModelDetails: React.FC = () => {
   const [showEnterpriseAlert, setShowEnterpriseAlert] = useState(true);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000; // 2 seconds
   let count = 0;
 
   const fetchData = async () => {

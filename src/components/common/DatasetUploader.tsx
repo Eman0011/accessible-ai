@@ -44,9 +44,6 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
   const [estimatedRowCount, setEstimatedRowCount] = useState<number | null>(null);
   const [actualRowCount, setActualRowCount] = useState<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
-  const [existingDatasets, setExistingDatasets] = useState<Dataset[]>([]);
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
-  const [isCreatingNewDataset, setIsCreatingNewDataset] = useState(false);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
   const [uploadBasePath, setUploadBasePath] = useState<string>('');
   const navigate = useNavigate();
@@ -154,18 +151,6 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     });
   };
 
-  const fetchExistingDatasets = async () => {
-    try {
-      const { data: datasets } = await client.models.Dataset.list({
-        filter: { projectId: { eq: projectId } }
-      });
-      setExistingDatasets(datasets as unknown as Dataset[]);
-    } catch (error) {
-      console.error('Error fetching datasets:', error);
-      setError('Error fetching existing datasets');
-    }
-  };
-
   const createNewDataset = async () => {
     try {
       const { data: newDataset } = await client.models.Dataset.create({
@@ -236,27 +221,21 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     setError(null);
     setIsCreatingDataset(true);
     try {
-      let targetDatasetId: string = '';
-
-      if (selectedDatasetId === '+ Create new dataset') {
-        const newDataset = await createNewDataset();
-        if (newDataset && newDataset.id) {
-          targetDatasetId = newDataset.id;
-        } else {
-          throw new Error('Failed to create dataset');
-        }
-      } else {
-        targetDatasetId = selectedDatasetId || '';
+      // Create new dataset
+      const newDataset = await createNewDataset();
+      if (!newDataset || !newDataset.id) {
+        throw new Error('Failed to create dataset');
       }
 
-      const newVersion = await createDatasetVersion(targetDatasetId);
+      // Create version for the new dataset
+      const newVersion = await createDatasetVersion(newDataset.id);
       
       if (newVersion) {
         // Fetch the complete dataset with its new version
-        const { data: updatedDataset } = await client.models.Dataset.get({ id: targetDatasetId });
+        const { data: updatedDataset } = await client.models.Dataset.get({ id: newDataset.id });
         onDatasetCreated(updatedDataset as unknown as Dataset);
         resetForm();
-        navigate(`/datasets/${targetDatasetId}`);
+        navigate(`/datasets/${newDataset.id}`);
       }
     } catch (error) {
       console.error('Error in dataset creation process:', error);
@@ -276,59 +255,6 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     setEstimatedRowCount(null);
     setActualRowCount(null);
     setIsUploadComplete(false);
-    setSelectedDatasetId(null);
-  };
-
-  useEffect(() => {
-    fetchExistingDatasets();
-  }, [projectId]);
-
-  useEffect(() => {
-    if (selectedDatasetId && selectedDatasetId !== '+ Create new dataset') {
-      fetchCurrentVersion(selectedDatasetId);
-    }
-  }, [selectedDatasetId]);
-
-  const fetchCurrentVersion = async (datasetId: string) => {
-    try {
-      const { data: versions } = await client.models.DatasetVersion.list({
-        filter: { datasetId: { eq: datasetId } }
-      });
-      if (versions && versions.length > 0) {
-        const maxVersion = Math.max(...versions.map(v => v.version));
-        setCurrentVersion(maxVersion);
-      }
-    } catch (error) {
-      console.error('Error fetching dataset versions:', error);
-    }
-  };
-
-  const getDatasetPreview = () => {
-    if (!isFileSelected || !displayData.length) return null;
-
-    const uploadDate = new Date().toISOString();
-    const size = file?.size || 0;
-    const formattedSize = size ? (size / (1024 * 1024)).toFixed(2) : '0';
-
-    return (
-      <DatasetVisualizer
-        dataset={{
-          name: datasetName,
-          description: datasetDescription,
-          owner: userInfo?.username || 'unknown_user',
-          projectId: projectId,
-          id: selectedDatasetId || datasetId,
-        }}
-        previewData={displayData}
-        columns={columns}
-        version={{
-          uploadDate,
-          size,
-          rowCount: actualRowCount || estimatedRowCount || 0,
-          version: currentVersion + 1
-        }}
-      />
-    );
   };
 
   useEffect(() => {
@@ -349,51 +275,44 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     }
   }, [userInfo, projectId, datasetId]);
 
+  const getDatasetPreview = () => {
+    if (!isFileSelected || !displayData.length) return null;
+
+    const uploadDate = new Date().toISOString();
+    const size = file?.size || 0;
+    const formattedSize = size ? (size / (1024 * 1024)).toFixed(2) : '0';
+
+    return (
+      <DatasetVisualizer
+        dataset={{
+          name: datasetName,
+          description: datasetDescription,
+          owner: userInfo?.username || 'unknown_user',
+          projectId: projectId,
+          id: datasetId,
+        }}
+        previewData={displayData}
+        columns={columns}
+        version={{
+          uploadDate,
+          size,
+          rowCount: actualRowCount || estimatedRowCount || 0,
+          version: currentVersion + 1
+        }}
+      />
+    );
+  };
+
   return (
     <SpaceBetween size="m">
       {error && <Alert type="error" header="Error">{error}</Alert>}
       
-      <FormField label="Dataset">
-        <Select
-          selectedOption={selectedDatasetId ? 
-            { label: existingDatasets.find(d => d.id === selectedDatasetId)?.name || '', 
-              value: selectedDatasetId 
-            } : null
-          }
-          onChange={({ detail }) => {
-            const selectedValue = detail.selectedOption.value;
-            setSelectedDatasetId(selectedValue || null);
-            
-            if (selectedValue === '+ Create new dataset') {
-              setIsCreatingNewDataset(true);
-              setDatasetName('');
-              setDatasetDescription('');
-            } else {
-              setIsCreatingNewDataset(false);
-              const dataset = existingDatasets.find(d => d.id === selectedValue);
-              if (dataset) {
-                setDatasetName(dataset.name);
-                setDatasetDescription(dataset.description);
-              }
-            }
-          }}
-          options={[
-            { label: '+ Create new dataset', value: '+ Create new dataset' },
-            ...existingDatasets.map(dataset => ({
-              label: dataset.name,
-              value: dataset.id
-            }))
-          ]}
-          placeholder="Choose a dataset or create new"
-        />
-      </FormField>
-
       <FormField label="Dataset Name">
         <Input
           value={datasetName}
           onChange={({ detail }) => setDatasetName(detail.value)}
           placeholder="Enter dataset name"
-          disabled={!isCreatingNewDataset || isCreatingDataset}
+          disabled={isCreatingDataset}
         />
       </FormField>
 
@@ -402,21 +321,12 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
           value={datasetDescription}
           onChange={({ detail }) => setDatasetDescription(detail.value)}
           placeholder="Enter dataset description"
-          disabled={!isCreatingNewDataset || isCreatingDataset}
+          disabled={isCreatingDataset}
         />
       </FormField>
 
-      {/* File upload section */}
-      {!isCreatingDataset && (selectedDatasetId || isCreatingNewDataset) && uploadBasePath && (
+      {!isCreatingDataset && uploadBasePath && (
         <>
-          {selectedDatasetId && selectedDatasetId !== '+ Create new dataset' && (
-            <Header 
-              variant="h3"
-              description={`Current version: ${currentVersion}`}
-            >
-              Upload New Dataset Version
-            </Header>
-          )}
           <FileUploader
             path={uploadBasePath}
             acceptedFileTypes={['.csv', '.tsv']}
@@ -447,7 +357,6 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         </>
       )}
 
-      {/* Preview section */}
       {getDatasetPreview()}
 
       <Button 
@@ -456,10 +365,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         loading={isCreatingDataset}
         disabled={!datasetName || !file || !isFileSelected || !isUploadComplete || isCreatingDataset}
       >
-        {selectedDatasetId && selectedDatasetId !== '+ Create new dataset' 
-          ? 'Create New Version' 
-          : 'Create Dataset'
-        }
+        Create Dataset
       </Button>
     </SpaceBetween>
   );

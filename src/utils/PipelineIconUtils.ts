@@ -25,14 +25,20 @@ import FeatureAgglomerationIcon from '../assets/aai_icons/pipeline_steps/Feature
 import KernelPCAIcon from '../assets/aai_icons/pipeline_steps/KernelPCA.webp';
 import MaxAbsScalerIcon from '../assets/aai_icons/pipeline_steps/MaxAbsScaler.webp';
 import MinMaxScalerIcon from '../assets/aai_icons/pipeline_steps/MinMaxScaler.webp';
+import NormalizerIcon from '../assets/aai_icons/pipeline_steps/Normalizer.webp';
+import NystroemIcon from '../assets/aai_icons/pipeline_steps/Nystroem.webp';
 import OneHotEncoderIcon from '../assets/aai_icons/pipeline_steps/OneHotEncoder.webp';
 import PCAIcon from '../assets/aai_icons/pipeline_steps/PCA.webp';
-import RobustScalerIcon from '../assets/aai_icons/pipeline_steps/RobustScaler.png';
-import StandardScalerIcon from '../assets/aai_icons/pipeline_steps/StandardScaler.webp';
-import ZeroCountEncoderIcon from '../assets/aai_icons/pipeline_steps/ZeroCountEncoder.webp';
-import NormalizerIcon from '../assets/aai_icons/pipeline_steps/Normalizer.webp';
 import PolynomialFeaturesIcon from '../assets/aai_icons/pipeline_steps/PolynomialFeatures.webp';
-
+import RBFSamplerIcon from '../assets/aai_icons/pipeline_steps/RBFSampler.webp';
+import RFEIcon from '../assets/aai_icons/pipeline_steps/RFE.webp';
+import RobustScalerIcon from '../assets/aai_icons/pipeline_steps/RobustScaler.png';
+import SelectFromModelIcon from '../assets/aai_icons/pipeline_steps/SelectFromModel.webp';
+import SelectFweIcon from '../assets/aai_icons/pipeline_steps/SelectFwe.webp';
+import SelectPercentileIcon from '../assets/aai_icons/pipeline_steps/SelectPercentile.webp';
+import StandardScalerIcon from '../assets/aai_icons/pipeline_steps/StandardScaler.webp';
+import VarianceThresholdIcon from '../assets/aai_icons/pipeline_steps/VarianceThreshold.webp';
+import ZeroCountEncoderIcon from '../assets/aai_icons/pipeline_steps/ZeroCountEncoder.webp';
 
 // Icon mapping
 const PIPELINE_STEP_ICONS: { [key: string]: string } = {
@@ -69,6 +75,13 @@ const PIPELINE_STEP_ICONS: { [key: string]: string } = {
     'FeatureAgglomeration': FeatureAgglomerationIcon,
     'Normalizer': NormalizerIcon,
     'PolynomialFeatures': PolynomialFeaturesIcon,
+    'Nystroem': NystroemIcon,
+    'RBFSampler': RBFSamplerIcon,
+    'SelectFwe': SelectFweIcon,
+    'SelectPercentile': SelectPercentileIcon, 
+    'SelectFromModel': SelectFromModelIcon,
+    'RFE': RFEIcon,
+    'VarianceThreshold': VarianceThresholdIcon,
 };
 
 // Default icon if no match is found - using Cloudscape's icon name
