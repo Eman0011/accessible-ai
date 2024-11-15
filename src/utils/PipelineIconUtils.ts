@@ -30,6 +30,9 @@ import PCAIcon from '../assets/aai_icons/pipeline_steps/PCA.webp';
 import RobustScalerIcon from '../assets/aai_icons/pipeline_steps/RobustScaler.png';
 import StandardScalerIcon from '../assets/aai_icons/pipeline_steps/StandardScaler.webp';
 import ZeroCountEncoderIcon from '../assets/aai_icons/pipeline_steps/ZeroCountEncoder.webp';
+import NormalizerIcon from '../assets/aai_icons/pipeline_steps/Normalizer.webp';
+import PolynomialFeaturesIcon from '../assets/aai_icons/pipeline_steps/PolynomialFeatures.webp';
+
 
 // Icon mapping
 const PIPELINE_STEP_ICONS: { [key: string]: string } = {
@@ -64,6 +67,8 @@ const PIPELINE_STEP_ICONS: { [key: string]: string } = {
     'KernelPCA': KernelPCAIcon,
     'PCA': PCAIcon,
     'FeatureAgglomeration': FeatureAgglomerationIcon,
+    'Normalizer': NormalizerIcon,
+    'PolynomialFeatures': PolynomialFeaturesIcon,
 };
 
 // Default icon if no match is found - using Cloudscape's icon name

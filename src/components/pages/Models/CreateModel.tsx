@@ -385,7 +385,7 @@ const CreateModel: React.FC = () => {
     try {
       const { data: newModel } = await client.models.Model.create({
         name: modelName,
-        description: 'Initial model creation', // Add description field
+        description: newModelDescription,
         owner: userInfo?.username || 'unknown_user',
         projectId: currentProject?.id || '',
         createdAt: new Date().toISOString(),
