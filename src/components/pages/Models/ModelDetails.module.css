@@ -32,20 +32,27 @@
   margin-bottom: 16px;
 }
 
+.pipelineVisualizerContainer {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+}
+
 .topPipelineBadge {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
+  top: -50px;
+  right: -40px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  width: 120px;
+  width: 100px;
+  z-index: 100;
+  pointer-events: none;
 }
 
 .topPipelineIcon {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   object-fit: contain;
   border-radius: 50%;
   background: var(--color-background-container-content);
@@ -56,8 +63,10 @@
 .topPipelineBadge span {
   color: #DAA520;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   text-align: center;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .pipelineDescription {
@@ -66,7 +75,6 @@
   gap: 8px;
   color: #037f0c;
   font-weight: 500;
-  padding-right: 140px;
 }
 
 .pipelineDescription span {
@@ -144,12 +152,10 @@
 
 /* Alternative Pipelines */
 .alternativePipelines {
-  margin-top: 16px;
   border-top: 1px solid var(--color-border-divider-default);
 }
 
 .alternativePipelinesText {
-  width: 70%;
   margin-right: auto;
 }
 
@@ -246,7 +252,7 @@
 /* Main layout */
 .mainContentGrid {
   display: grid;
-  grid-template-columns: 35% 65%;
+  grid-template-columns: 50% 50%;
   gap: 24px;
   width: 100%;
   min-height: 0;
@@ -256,28 +262,46 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  width: 100%;
   min-width: 0;
+  height: 100%;
 }
 
 .rightColumn {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: visible;
-  width: 100%;
   min-width: 0;
+  height: 100%;
 }
 
-/* Add media query for smaller screens */
+/* Make the Container component in the left column fill available space */
+.leftColumn > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+}
+
+/* Make the SpaceBetween component fill available space */
+.leftColumn > div > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Make EDA content section fill available space */
+.edaContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Add media query for responsive layout */
 @media (max-width: 1200px) {
   .mainContentGrid {
     grid-template-columns: 1fr;
-    height: auto;
-  }
-
-  .leftColumn {
-    width: 100%;
   }
 }
 
@@ -352,7 +376,6 @@
 
 /* Add to your existing styles */
 .modelOverview {
-  padding: 16px 0;
   border-bottom: 1px solid var(--color-border-divider-default);
 }
 
@@ -373,13 +396,12 @@
   }
 }
 
-/* Update metrics layout for center alignment */
+/* Update metrics layout for full width */
 .metricsTablesColumn {
-  display: grid;
-  grid-template-columns: 35% 65%;
-  gap: 24px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  gap: 24px;
 }
 
 /* Create a responsive grid for all performance metrics */
@@ -396,11 +418,11 @@
 /* Style for individual metric containers */
 .metricContainer {
   padding: 8px;
-  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: stretch;
+  text-align: left;
   background: none;
 }
 
@@ -412,7 +434,6 @@
 
 .metricContainer > div {
   width: 100%;
-  text-align: center;
 }
 
 .metricContainer [data-awsui-box-variant="awsui-key-label"] {
@@ -425,5 +446,71 @@
   .metricsTablesColumn {
     grid-template-columns: 1fr;
   }
+}
+
+.versionSelectorLayout {
+  display: grid;
+  grid-template-columns: 30% 70%;
+  gap: 20px;
+  align-items: start;
+}
+
+.versionSelector {
+  min-width: 0;
+}
+
+.versionDetailsColumn {
+  min-width: 0;
+  padding-right: 16px;
+}
+
+.versionDetails {
+  min-width: 0;
+}
+
+/* Update main content grid for full width */
+.mainContentGrid {
+  width: 100%;
+  min-height: 0;
+}
+
+.fullWidthColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Add a container for the pipeline visualizer to handle positioning */
+.pipelineVisualizerContainer {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+}
+
+/* Make tables use full width */
+.metricContainer > div {
+  width: 100%;
+}
+
+/* Make table headers left-aligned */
+.metricContainer [role="columnheader"] {
+  text-align: left;
+}
+
+/* Make table cells left-aligned */
+.metricContainer [role="cell"] {
+  text-align: left;
+}
+
+/* Keep metric summary cards centered */
+.metricsGrid .metricContainer {
+  align-items: center;
+  text-align: center;
+}
+
+.metricsGrid .metricContainer > div {
+  text-align: center;
 }
  

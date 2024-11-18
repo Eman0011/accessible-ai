@@ -22,9 +22,11 @@ export const BatchForm: React.FC<BatchFormProps> = ({
     const [isFileSelected, setIsFileSelected] = useState(false);
 
     const handleFileSelect = async (file: File) => {
-        console.debug('Processing batch file:', {
+        console.debug('[BatchForm] Processing batch file:', {
             fileName: file.name,
             fileSize: file.size,
+            fileType: file.type,
+            lastModified: new Date(file.lastModified).toISOString(),
             uploadBasePath,
             fullPath: `${uploadBasePath}/${file.name}`
         });
@@ -36,9 +38,12 @@ export const BatchForm: React.FC<BatchFormProps> = ({
         Papa.parse(file, {
             preview: 5,
             complete: (results) => {
-                console.debug('CSV preview parsed:', {
-                    rowCount: results.data.length,
-                    firstRow: results.data[0]
+                console.debug('[BatchForm] CSV preview parsed:', {
+                    totalRows: results.data.length,
+                    headers: results.data[0],
+                    sampleData: results.data.slice(1, 3),
+                    errors: results.errors,
+                    meta: results.meta
                 });
 
                 if (results.data.length > 0) {
@@ -48,12 +53,13 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                 }
             },
             error: (error) => {
-                console.error('Error parsing CSV:', error);
+                console.error('[BatchForm] Error parsing CSV:', error);
             }
         });
     };
 
     const resetForm = () => {
+        console.debug('[BatchForm] Resetting form state');
         setFile(null);
         setIsFileSelected(false);
         setPreviewData({ headers: [], rows: [] });
@@ -69,26 +75,37 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                     maxFileCount={1}
                     processFile={async ({ file }) => {
                         await handleFileSelect(file);
-                        console.debug('FileUploader processing file:', {
-                            file: file.name,
+                        const key = `${uploadBasePath}/${file.name}`;
+                        console.debug('[BatchForm] FileUploader processing file:', {
+                            fileName: file.name,
+                            fileSize: file.size,
                             path: uploadBasePath,
-                            key: `${uploadBasePath}/${file.name}`
+                            key,
+                            timestamp: new Date().toISOString()
                         });
-                        return { 
-                            file, 
-                            key: `${uploadBasePath}/${file.name}`
-                        };
+                        return { file, key };
                     }}
-                    accessLevel="private"
-                    onError={(error) => {
-                        console.error('FileUploader error:', error);
+                    onError={(error: unknown) => {
+                        console.error('[BatchForm] FileUploader error:', {
+                            error,
+                            timestamp: new Date().toISOString()
+                        });
                         resetForm();
                     }}
                     onSuccess={() => {
-                        console.debug('File uploaded successfully');
+                        console.debug('[BatchForm] File uploaded successfully', {
+                            fileName: file?.name,
+                            timestamp: new Date().toISOString()
+                        });
                     }}
-                    onFileRemove={resetForm}
-                    onClear={resetForm}
+                    onFileRemove={() => {
+                        console.debug('[BatchForm] File removed');
+                        resetForm();
+                    }}
+                    onClear={() => {
+                        console.debug('[BatchForm] Upload cleared');
+                        resetForm();
+                    }}
                 />
             </FormField>
 

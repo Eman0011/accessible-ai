@@ -6,7 +6,6 @@
 .pipelineContainer {
   display: flex;
   align-items: flex-start;
-  padding: 16px 0;
   gap: 24px;
   overflow-x: auto;
   flex-wrap: nowrap;
@@ -138,4 +137,4 @@
   display: flex;
   align-items: center;
   padding-top: 80px;
-} 
+}

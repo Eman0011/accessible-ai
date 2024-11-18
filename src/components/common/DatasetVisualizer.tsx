@@ -1,6 +1,7 @@
 import { Header, SpaceBetween, Table, TableProps } from '@cloudscape-design/components';
 import React from 'react';
 import { Dataset } from '../../types/models';
+import tableStyles from './TableStyles.module.css';
 
 interface DatasetVisualizerProps {
   dataset: Dataset;
@@ -13,6 +14,7 @@ interface DatasetVisualizerProps {
     version: number;
   };
   highlightedColumn?: string | null;
+  className?: string;
 }
 
 const DatasetVisualizer: React.FC<DatasetVisualizerProps> = ({ 
@@ -20,7 +22,8 @@ const DatasetVisualizer: React.FC<DatasetVisualizerProps> = ({
   previewData, 
   columns,
   version,
-  highlightedColumn
+  highlightedColumn,
+  className
 }) => {
   const getColumnStyle = (columnId: string) => {
     const baseStyle = { textAlign: 'center' as const };
@@ -55,10 +58,13 @@ const DatasetVisualizer: React.FC<DatasetVisualizerProps> = ({
         {version && ` (v${version.version})`}
       </Header>
       <Table
+        className={tableStyles.previewTable}
         columnDefinitions={highlightedColumns}
         items={previewData}
         header={<h3>Data Preview</h3>}
         wrapLines
+        variant="embedded"
+        stripedRows
       />
       {version && (
         <SpaceBetween size="s" direction="horizontal">

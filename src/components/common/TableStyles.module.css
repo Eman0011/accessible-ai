@@ -1,0 +1,32 @@
+/* Create a new shared styles file for consistent table styling */
+.previewTable {
+  width: 100%;
+  border: 1px solid var(--color-border-divider-default);
+  border-radius: 8px;
+}
+
+.previewTable [role="row"]:nth-child(even) {
+  background-color: var(--color-background-layout-main);
+}
+
+.previewTable [role="row"]:hover {
+  background-color: var(--color-background-item-hover);
+}
+
+.previewTable [role="cell"],
+.previewTable [role="columnheader"] {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-divider-default);
+}
+
+.previewTable [role="columnheader"] {
+  background-color: var(--color-background-container-header);
+  font-weight: bold;
+  border-bottom: 2px solid var(--color-border-divider-default); /* Slightly thicker border for header */
+}
+
+/* Add border to the last row to complete the table border */
+.previewTable [role="row"]:last-child [role="cell"] {
+  border-bottom: none;
+} 

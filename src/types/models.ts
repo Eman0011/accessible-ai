@@ -25,14 +25,14 @@ export interface Dataset {
 export interface DatasetVersion {
   id: string;
   datasetId: string;
-  dataset?: Dataset;
   version: number;
+  owner?: string;
   s3Key: string;
   size: number;
   rowCount: number;
   uploadDate: string;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface Model {

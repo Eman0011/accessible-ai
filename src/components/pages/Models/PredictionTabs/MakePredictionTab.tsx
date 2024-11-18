@@ -1,4 +1,4 @@
-import { Container, SpaceBetween, Toggle, Box, Header, Spinner, Tabs, FormField, Textarea, SegmentedControl, Button } from '@cloudscape-design/components';
+import { Container, SpaceBetween, Toggle, Box, Header, Spinner, Tabs, FormField, Textarea, SegmentedControl, Button, Table } from '@cloudscape-design/components';
 import React, { useState, useEffect, useRef } from 'react';
 import { Model, ModelVersion } from '../../../../types/models';
 import { AdhocForm } from '../Forms/AdhocForm';
@@ -6,6 +6,7 @@ import { BatchForm } from '../Forms/BatchForm';
 import ModelPipelineVisualizer from '../../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
 import { JsonOutput } from '../components/JsonOutput';
 import styles from '../Predictions.module.css';
+import tableStyles from '../../../common/TableStyles.module.css';
 
 interface MakePredictionTabProps {
     selectedModel: Model | null;

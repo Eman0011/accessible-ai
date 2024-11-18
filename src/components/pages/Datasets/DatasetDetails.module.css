@@ -1,8 +1,35 @@
 .datasetOverview {
-    padding: 0.5rem 0;
+    padding: 16px 0;
     border-bottom: 1px solid var(--color-border-divider-default);
+}
+
+.versionSelectorLayout {
+    display: grid;
+    grid-template-columns: 30% 70%;
+    gap: 20px;
+    align-items: start;
+}
+
+.versionSelector {
+    min-width: 0;
+}
+
+.versionDetailsColumn {
+    min-width: 0;
+    padding-right: 16px;
+}
+
+.versionDetails {
+    min-width: 0;
 }
 
 .versionDetailsCard {
     padding: 0.5rem 0;
+}
+
+/* Add media query for responsive layout */
+@media (max-width: 1200px) {
+    .versionSelectorLayout {
+        grid-template-columns: 1fr;
+    }
 } 

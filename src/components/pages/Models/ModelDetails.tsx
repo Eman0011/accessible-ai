@@ -111,6 +111,7 @@ const ModelDetails: React.FC = () => {
     version: number,
     datasetName: string 
   } | null>(null);
+  const [showingAlternativePipeline, setShowingAlternativePipeline] = useState(false);
 
   const fetchData = async () => {
     if (modelId) {
@@ -276,7 +277,7 @@ const ModelDetails: React.FC = () => {
                 </div>
               </div>
 
-              {/* Metrics Tables */}
+              {/* Metrics Tables - Reordered */}
               <div className={styles.metricsTablesColumn}>
                 {/* Confusion Matrix */}
                 <div className={styles.metricContainer}>
@@ -298,8 +299,10 @@ const ModelDetails: React.FC = () => {
                     <Box color="text-status-inactive">Confusion matrix not available</Box>
                   )}
                 </div>
+              </div>
 
-                {/* Classification Report */}
+              {/* Classification Report moved below Confusion Matrix */}
+              <div className={styles.metricsTablesColumn}>
                 <div className={styles.metricContainer}>
                   <Header variant="h3">Classification Report</Header>
                   {metrics.classification_report ? (
@@ -597,72 +600,79 @@ const ModelDetails: React.FC = () => {
         </ColumnLayout>
       </div>
 
-      {/* Version Selector */}
+      {/* Version Selector and Details Layout */}
       <Container>
         <SpaceBetween size="m">
-          <Header variant="h3">Model Version</Header>
-          <VersionSelector
-            modelVersions={versions || []}
-            selectedVersion={versions.find(v => v.id === selectedVersion) || null}
-            onVersionSelect={handleVersionSelect}
-          />
-          
-          {/* Version Details */}
-          {selectedVersion && (
-            <ExpandableSection 
-              headerText="Version Details" 
-              variant="default"
-            >
-              <div className={styles.versionDetailsCard}>
-                <SpaceBetween size="s">
-                  <ColumnLayout columns={3} variant="text-grid">
-                    <div>
-                      <Box variant="awsui-key-label">Status</Box>
-                      <StatusIndicator type={getStatusColor(versions.find(v => v.id === selectedVersion)?.status || 'DRAFT')}>
-                        {versions.find(v => v.id === selectedVersion)?.status || 'DRAFT'}
-                      </StatusIndicator>
+          <div className={styles.versionSelectorLayout}>
+            <div className={styles.versionSelector}>
+              <VersionSelector
+                modelVersions={versions || []}
+                selectedVersion={versions.find(v => v.id === selectedVersion) || null}
+                onVersionSelect={handleVersionSelect}
+              />
+            </div>
+            
+            <div className={styles.versionDetailsColumn}>
+              {/* Version Details */}
+              {selectedVersion && (
+                <div className={styles.versionDetails}>
+                  <ExpandableSection 
+                    headerText="Version Details" 
+                    variant="default"
+                  >
+                    <div className={styles.versionDetailsCard}>
+                      <SpaceBetween size="s">
+                        <ColumnLayout columns={3} variant="text-grid">
+                          <div>
+                            <Box variant="awsui-key-label">Status</Box>
+                            <StatusIndicator type={getStatusColor(versions.find(v => v.id === selectedVersion)?.status || 'DRAFT')}>
+                              {versions.find(v => v.id === selectedVersion)?.status || 'DRAFT'}
+                            </StatusIndicator>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Target Feature</Box>
+                            <div>{versions.find(v => v.id === selectedVersion)?.targetFeature || '-'}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Dataset Version</Box>
+                            {versions.find(v => v.id === selectedVersion)?.datasetVersionId ? (
+                              <Link
+                                onFollow={(e) => {
+                                  e.preventDefault();
+                                  if (datasetVersionDetails) {
+                                    navigate(`/datasets/${datasetVersionDetails.datasetId}?version=${datasetVersionDetails.version}`);
+                                  }
+                                }}
+                              >
+                                {datasetVersionDetails ? 
+                                  `${datasetVersionDetails.datasetName} v${datasetVersionDetails.version}` : 
+                                  'Unknown Dataset'
+                                }
+                              </Link>
+                            ) : '-'}
+                          </div>
+                        </ColumnLayout>
+                        <ColumnLayout columns={3} variant="text-grid">
+                          <div>
+                            <Box variant="awsui-key-label">Created</Box>
+                            <div>{new Date(versions.find(v => v.id === selectedVersion)?.createdAt || '').toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Last Updated</Box>
+                            <div>{new Date(versions.find(v => v.id === selectedVersion)?.updatedAt || '').toLocaleString()}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Training Job</Box>
+                            <div>{versions.find(v => v.id === selectedVersion)?.trainingJobId || '-'}</div>
+                          </div>
+                        </ColumnLayout>
+                      </SpaceBetween>
                     </div>
-                    <div>
-                      <Box variant="awsui-key-label">Target Feature</Box>
-                      <div>{versions.find(v => v.id === selectedVersion)?.targetFeature || '-'}</div>
-                    </div>
-                    <div>
-                      <Box variant="awsui-key-label">Dataset Version</Box>
-                      {versions.find(v => v.id === selectedVersion)?.datasetVersionId ? (
-                        <Link
-                          onFollow={(e) => {
-                            e.preventDefault();
-                            if (datasetVersionDetails) {
-                              navigate(`/datasets/${datasetVersionDetails.datasetId}?version=${datasetVersionDetails.version}`);
-                            }
-                          }}
-                        >
-                          {datasetVersionDetails ? 
-                            `${datasetVersionDetails.datasetName} v${datasetVersionDetails.version}` : 
-                            'Unknown Dataset'
-                          }
-                        </Link>
-                      ) : '-'}
-                    </div>
-                  </ColumnLayout>
-                  <ColumnLayout columns={3} variant="text-grid">
-                    <div>
-                      <Box variant="awsui-key-label">Created</Box>
-                      <div>{new Date(versions.find(v => v.id === selectedVersion)?.createdAt || '').toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <Box variant="awsui-key-label">Last Updated</Box>
-                      <div>{new Date(versions.find(v => v.id === selectedVersion)?.updatedAt || '').toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <Box variant="awsui-key-label">Training Job</Box>
-                      <div>{versions.find(v => v.id === selectedVersion)?.trainingJobId || '-'}</div>
-                    </div>
-                  </ColumnLayout>
-                </SpaceBetween>
-              </div>
-            </ExpandableSection>
-          )}
+                  </ExpandableSection>
+                </div>
+              )}
+            </div>
+          </div>
         </SpaceBetween>
       </Container>
 
@@ -676,95 +686,95 @@ const ModelDetails: React.FC = () => {
             label: 'Details',
             content: (
               <div className={styles.mainContentGrid}>
-                {/* Left column: EDA Analysis */}
+                {/* Left column - Pipeline */}
                 <div className={styles.leftColumn}>
                   {selectedVersion && versions.find(v => v.id === selectedVersion)?.status === 'TRAINING_COMPLETED' && (
-                    <Container
-                      header={
-                        <Header
-                          variant="h2"
-                          info={<Link>Learn more about EDA's analysis</Link>}
+                    <Container>
+                      <SpaceBetween size="l">
+                        <div className={styles.pipelineVisualizerContainer}>
+                          <ModelPipelineVisualizer 
+                            modelVersion={versions.find(v => v.id === selectedVersion)!}
+                          />
+                          {!showingAlternativePipeline && (
+                            <div className={styles.topPipelineBadge}>
+                              <img 
+                                src={TopPipelineIcon} 
+                                alt="Top Pipeline" 
+                                className={styles.topPipelineIcon}
+                              />
+                              <span>Top Pipeline</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className={styles.pipelineDescription}>
+                          <Icon 
+                            name="status-positive" 
+                            size="small" 
+                            variant="success" 
+                          />
+                          <span>
+                            This pipeline out-performed over 1,000 evaluated pipelines using Genetic  Programming
+                          </span>
+                        </div>
+                        {/* <ExpandableSection 
+                          headerText="Alternative Pipelines" 
+                          variant="footer"
                         >
-                          EDA's Model Analysis
-                        </Header>
-                      }
-                      className={styles.edaContainer}
-                    >
-                      <div className={styles.edaContent}>
-                        <SpaceBetween size="l">
-                          <Box variant="awsui-key-label">Pipeline Summary</Box>
-                          <Box color="text-status-inactive">
-                            Coming soon: AI-powered analysis of your model pipeline, explaining each step in plain English 
-                            and providing insights about the model's approach to solving your problem.
+                          <Box 
+                            color="text-body-secondary"
+                            className={styles.alternativePipelinesText}
+                          >
+                            Coming soon: Browse and compare alternative pipelines that were evaluated 
+                            during the model training process. Each pipeline will include detailed 
+                            performance metrics and explanations of the different approaches tested.
                           </Box>
+                        </ExpandableSection> */}
 
-                          <Box variant="awsui-key-label">Performance Insights</Box>
-                          <Box color="text-status-inactive">
-                            Coming soon: Natural language explanations of your model's performance metrics, 
-                            highlighting strengths and potential areas for improvement.
-                          </Box>
-                        </SpaceBetween>
-                      </div>
-
-                      {showEnterpriseAlert && (
-                        <Alert
-                          type="info"
-                          header="Enterprise Feature"
-                          dismissible={true}
-                          onDismiss={() => setShowEnterpriseAlert(false)}
+                        {/* EDA's Model Analysis moved here */}
+                        <ExpandableSection
+                          headerText="EDA's Model Analysis"
+                          headerDescription="AI-powered insights about your model"
+                          variant="default"
+                          defaultExpanded={true}
                         >
-                          Get detailed AI-powered analysis of your models with our Enterprise plan. 
-                          Our assistant EDA will help you understand complex ML concepts and make better decisions.
-                        </Alert>
-                      )}
+                          <div className={styles.edaContent}>
+                            <SpaceBetween size="l">
+                              <Box variant="awsui-key-label">Pipeline Summary</Box>
+                              <Box color="text-status-inactive">
+                                Coming soon: AI-powered analysis of your model pipeline, explaining each step in plain English 
+                                and providing insights about the model's approach to solving your problem.
+                              </Box>
+
+                              <Box variant="awsui-key-label">Performance Insights</Box>
+                              <Box color="text-status-inactive">
+                                Coming soon: Natural language explanations of your model's performance metrics, 
+                                highlighting strengths and potential areas for improvement.
+                              </Box>
+                            </SpaceBetween>
+                          </div>
+
+                          {showEnterpriseAlert && (
+                            <Alert
+                              type="info"
+                              header="Enterprise Feature"
+                              dismissible={true}
+                              onDismiss={() => setShowEnterpriseAlert(false)}
+                            >
+                              Get detailed AI-powered analysis of your models with our Enterprise plan. 
+                              Our assistant EDA will help you understand complex ML concepts and make better decisions.
+                            </Alert>
+                          )}
+                        </ExpandableSection>
+                      </SpaceBetween>
                     </Container>
                   )}
                 </div>
 
-                {/* Right column: Pipeline and Performance */}
+                {/* Right column - Metrics */}
                 <div className={styles.rightColumn}>
                   {selectedVersion && versions.find(v => v.id === selectedVersion)?.status === 'TRAINING_COMPLETED' && (
-                    <>
-                      <Container>
-                        <SpaceBetween size="l">
-                          <ModelPipelineVisualizer 
-                            modelVersion={versions.find(v => v.id === selectedVersion)!}
-                          />
-                          <div className={styles.topPipelineBadge}>
-                            <img 
-                              src={TopPipelineIcon} 
-                              alt="Top Pipeline" 
-                              className={styles.topPipelineIcon}
-                            />
-                            <span>Top Pipeline</span>
-                          </div>
-                          <div className={styles.pipelineDescription}>
-                            <Icon 
-                              name="status-positive" 
-                              size="small" 
-                              variant="success" 
-                            />
-                            <span>
-                              This pipeline out-performed over 1,000 evaluated pipelines using genetic programming
-                            </span>
-                          </div>
-                          <ExpandableSection 
-                            headerText="Alternative Pipelines" 
-                            variant="footer"
-                          >
-                            <Box 
-                                color="text-body-secondary"
-                                className={styles.alternativePipelinesText}
-                            >
-                                Coming soon: Browse and compare alternative pipelines that were evaluated 
-                                during the model training process. Each pipeline will include detailed 
-                                performance metrics and explanations of the different approaches tested.
-                            </Box>
-                          </ExpandableSection>
-                        </SpaceBetween>
-                      </Container>
-                      {renderPerformanceSection(versions.find(v => v.id === selectedVersion)!)}
-                    </>
+                    renderPerformanceSection(versions.find(v => v.id === selectedVersion)!)
                   )}
                 </div>
               </div>

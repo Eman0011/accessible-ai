@@ -3,13 +3,13 @@ import {
   Button,
   ColumnLayout,
   Container,
+  ExpandableSection,
   FormField,
   Header,
   Select,
   SpaceBetween,
   Spinner,
-  Tabs,
-  ExpandableSection
+  Tabs
 } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import { downloadData } from 'aws-amplify/storage';
@@ -22,6 +22,7 @@ import { getCSVFromCache, setCSVInCache } from '../../../utils/CacheUtils';
 import { formatBytes } from '../../../utils/formatUtils';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
 import styles from './DatasetDetails.module.css';
+import tableStyles from '../../common/TableStyles.module.css';
 
 const client = generateClient<Schema>();
 
@@ -310,37 +311,60 @@ const DatasetDetails: React.FC = () => {
       </div>
 
       <Container>
-        <SpaceBetween size="s">
-          <Header variant="h3">Dataset Version</Header>
-          <VersionSelector
-            versions={versions}
-            selectedVersion={versions.find(v => v.id === selectedVersion) || null}
-            onVersionSelect={handleVersionSelect}
-          />
-          
-          {selectedVersion && (
-            <ExpandableSection 
-              headerText="Version Details" 
-              variant="default"
-            >
-              <div className={styles.versionDetailsCard}>
-                <ColumnLayout columns={3} variant="text-grid">
-                  <div>
-                    <Box variant="awsui-key-label">Upload Date</Box>
-                    <div>{new Date(versions.find(v => v.id === selectedVersion)?.uploadDate || '').toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <Box variant="awsui-key-label">Size</Box>
-                    <div>{versions.find(v => v.id === selectedVersion)?.size || '-'} bytes</div>
-                  </div>
-                  <div>
-                    <Box variant="awsui-key-label">Row Count</Box>
-                    <div>{versions.find(v => v.id === selectedVersion)?.rowCount || '-'}</div>
-                  </div>
-                </ColumnLayout>
-              </div>
-            </ExpandableSection>
-          )}
+        <SpaceBetween size="m">
+          <div className={styles.versionSelectorLayout}>
+            <div className={styles.versionSelector}>
+              <VersionSelector
+                versions={versions}
+                selectedVersion={versions.find(v => v.id === selectedVersion) || null}
+                onVersionSelect={handleVersionSelect}
+              />
+            </div>
+            
+            <div className={styles.versionDetailsColumn}>
+              {selectedVersion && (
+                <div className={styles.versionDetails}>
+                  <ExpandableSection 
+                    headerText="Version Details" 
+                    variant="default"
+                  >
+                    <div className={styles.versionDetailsCard}>
+                      <SpaceBetween size="s">
+                        <ColumnLayout columns={3} variant="text-grid">
+                          <div>
+                            <Box variant="awsui-key-label">Version</Box>
+                            <div>v{versions.find(v => v.id === selectedVersion)?.version}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Uploaded By</Box>
+                            <div>{versions.find(v => v.id === selectedVersion)?.owner || dataset.owner}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Upload Date</Box>
+                            <div>{new Date(versions.find(v => v.id === selectedVersion)?.uploadDate || '').toLocaleString()}</div>
+                          </div>
+                        </ColumnLayout>
+                        <ColumnLayout columns={3} variant="text-grid">
+                          <div>
+                            <Box variant="awsui-key-label">Size</Box>
+                            <div>{formatBytes(versions.find(v => v.id === selectedVersion)?.size || 0)}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Row Count</Box>
+                            <div>{versions.find(v => v.id === selectedVersion)?.rowCount?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label">Last Modified</Box>
+                            <div>{new Date(versions.find(v => v.id === selectedVersion)?.updatedAt || '').toLocaleString()}</div>
+                          </div>
+                        </ColumnLayout>
+                      </SpaceBetween>
+                    </div>
+                  </ExpandableSection>
+                </div>
+              )}
+            </div>
+          </div>
         </SpaceBetween>
       </Container>
 
@@ -362,6 +386,7 @@ const DatasetDetails: React.FC = () => {
                       previewData={previewData}
                       columns={columns}
                       version={versions.find(v => v.id === selectedVersion)}
+                      className={tableStyles.previewTable}
                     />
                   )
                 )}

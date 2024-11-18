@@ -1,7 +1,7 @@
 import { Context } from 'aws-lambda';
 import { Lambda, S3 } from 'aws-sdk';
-import { Schema } from '../../data/resource';
 import { LAMBDA_INFERENCE_FUNCTION } from '../../../Config';
+import { Schema } from '../../data/resource';
 
 const s3 = new S3();
 const lambda = new Lambda();
@@ -9,7 +9,6 @@ const lambda = new Lambda();
 export const handler: Schema["runModelInference"]["functionHandler"] = async (event, context: Context) => {
   console.debug('Inference request received:', {
     ...event.arguments,
-    inputSize: event.arguments.input ? event.arguments.input.length : undefined,
     hasInputPath: !!event.arguments.inputDataPath,
     hasOutputPath: !!event.arguments.outputDataPath
   });

@@ -13,6 +13,7 @@ import {
 import React, { useState, useEffect } from 'react';
 import { Prediction } from '../../../../types/models';
 import { PredictionTableColumns } from '../TableColumns';
+import tableStyles from '../../../common/TableStyles.module.css';
 
 interface HistoryTabProps {
     predictions: Prediction[];
@@ -70,7 +71,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
     return (
         <Table
-            loading={loading}
+            className={tableStyles.previewTable}
             columnDefinitions={[
                 {
                     id: 'timestamp',
