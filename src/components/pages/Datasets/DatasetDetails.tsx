@@ -3,25 +3,25 @@ import {
   Button,
   ColumnLayout,
   Container,
+  FormField,
   Header,
-  RadioGroup,
-  SpaceBetween,
-  Table,
-  Tabs,
-  Spinner,
   Select,
-  FormField
+  SpaceBetween,
+  Spinner,
+  Tabs,
+  ExpandableSection
 } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import { downloadData } from 'aws-amplify/storage';
 import Papa from 'papaparse';
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { Schema } from '../../../../amplify/data/resource';
 import { Dataset, DatasetVersion } from '../../../types/models';
-import DatasetVisualizer from '../../common/DatasetVisualizer';
-import { formatBytes } from '../../../utils/formatUtils';
 import { getCSVFromCache, setCSVInCache } from '../../../utils/CacheUtils';
+import { formatBytes } from '../../../utils/formatUtils';
+import DatasetVisualizer from '../../common/DatasetVisualizer';
+import styles from './DatasetDetails.module.css';
 
 const client = generateClient<Schema>();
 
@@ -56,26 +56,27 @@ const VersionSelector: React.FC<{
     selectedVersion: DatasetVersion | null;
     onVersionSelect: (version: DatasetVersion | null) => void;
 }> = ({ versions, selectedVersion, onVersionSelect }) => (
-    <FormField label="Select Dataset Version">
-        <Select
-            selectedOption={selectedVersion ? 
-                { 
-                    label: `Version ${selectedVersion.version} (${new Date(selectedVersion.uploadDate).toLocaleDateString()})`, 
-                    value: selectedVersion.version.toString() 
-                } : null
-            }
-            onChange={({ detail }) => {
-                const version = versions.find(v => v.version.toString() === detail.selectedOption.value);
-                if (version) onVersionSelect(version);
-            }}
-            options={versions.map(version => ({
-                label: `Version ${version.version} (${new Date(version.uploadDate).toLocaleDateString()})`,
-                value: version.version.toString(),
-                description: `${version.rowCount} rows, ${formatBytes(version.size)}`
-            }))}
-            placeholder="Choose a version"
-        />
-    </FormField>
+    <div style={{ maxWidth: '400px' }}>
+        <FormField label="Select Dataset Version">
+            <Select
+                selectedOption={selectedVersion ? 
+                    { 
+                        label: `Version ${selectedVersion.version} (${new Date(selectedVersion.uploadDate).toLocaleDateString()})`, 
+                        value: selectedVersion.id 
+                    } : null
+                }
+                onChange={({ detail }) => {
+                    const version = versions.find(v => v.id === detail.selectedOption.value);
+                    onVersionSelect(version || null);
+                }}
+                options={versions.map(version => ({
+                    label: `Version ${version.version} (${new Date(version.uploadDate).toLocaleDateString()})`,
+                    value: version.id
+                }))}
+                placeholder="Choose a version"
+            />
+        </FormField>
+    </div>
 );
 
 const DatasetDetails: React.FC = () => {
@@ -212,9 +213,22 @@ const DatasetDetails: React.FC = () => {
 };
 
   const handleCreateNewVersion = () => {
-    navigate('/datasets/create', { 
-      state: { selectedDatasetId: dataset?.id } 
-    });
+    if (dataset) {
+        console.debug('Navigating to create new version with dataset:', dataset);
+        navigate('/datasets/create', { 
+            state: { 
+                initialDataset: {
+                    id: dataset.id,
+                    name: dataset.name,
+                    description: dataset.description,
+                    owner: dataset.owner,
+                    projectId: dataset.projectId,
+                    createdAt: dataset.createdAt,
+                    updatedAt: dataset.updatedAt
+                }
+            } 
+        });
+    }
   };
 
   const handleCreateModel = () => {
@@ -278,6 +292,58 @@ const DatasetDetails: React.FC = () => {
         {dataset.name}
       </Header>
 
+      <div className={styles.datasetOverview}>
+        <ColumnLayout columns={8}>
+          <div>
+            <Box variant="awsui-key-label">Owner</Box>
+            <div>{dataset?.owner}</div>
+          </div>
+          <div>
+            <Box variant="awsui-key-label">Description</Box>
+            <div>{dataset?.description || '-'}</div>
+          </div>
+          <div>
+            <Box variant="awsui-key-label">Created</Box>
+            <div>{new Date(dataset?.createdAt || '').toLocaleString()}</div>
+          </div>
+        </ColumnLayout>
+      </div>
+
+      <Container>
+        <SpaceBetween size="s">
+          <Header variant="h3">Dataset Version</Header>
+          <VersionSelector
+            versions={versions}
+            selectedVersion={versions.find(v => v.id === selectedVersion) || null}
+            onVersionSelect={handleVersionSelect}
+          />
+          
+          {selectedVersion && (
+            <ExpandableSection 
+              headerText="Version Details" 
+              variant="default"
+            >
+              <div className={styles.versionDetailsCard}>
+                <ColumnLayout columns={3} variant="text-grid">
+                  <div>
+                    <Box variant="awsui-key-label">Upload Date</Box>
+                    <div>{new Date(versions.find(v => v.id === selectedVersion)?.uploadDate || '').toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <Box variant="awsui-key-label">Size</Box>
+                    <div>{versions.find(v => v.id === selectedVersion)?.size || '-'} bytes</div>
+                  </div>
+                  <div>
+                    <Box variant="awsui-key-label">Row Count</Box>
+                    <div>{versions.find(v => v.id === selectedVersion)?.rowCount || '-'}</div>
+                  </div>
+                </ColumnLayout>
+              </div>
+            </ExpandableSection>
+          )}
+        </SpaceBetween>
+      </Container>
+
       <Tabs
         activeTabId={activeTab}
         onChange={({ detail }) => setActiveTab(detail.activeTabId)}
@@ -286,40 +352,20 @@ const DatasetDetails: React.FC = () => {
             id: 'details',
             label: 'Details',
             content: (
-              <Container>
-                <SpaceBetween size="l">
-                  <ColumnLayout columns={2}>
-                    <div>
-                      <Box variant="h4">Description</Box>
-                      <p>{dataset.description}</p>
-                    </div>
-                    <div>
-                      <Box variant="h4">Owner</Box>
-                      <p>{dataset.owner}</p>
-                    </div>
-                  </ColumnLayout>
-
-                  <Header variant="h3">Dataset Versions</Header>
-                  <VersionSelector
-                    versions={versions}
-                    selectedVersion={versions.find(v => v.id === selectedVersion) || null}
-                    onVersionSelect={handleVersionSelect}
-                  />
-
-                  {loadingPreview ? (
-                    <Spinner size="large" />
-                  ) : (
-                    selectedVersion && (
-                      <DatasetVisualizer
-                        dataset={dataset}
-                        previewData={previewData}
-                        columns={columns}
-                        version={versions.find(v => v.id === selectedVersion)}
-                      />
-                    )
-                  )}
-                </SpaceBetween>
-              </Container>
+              <SpaceBetween size="l">
+                {loadingPreview ? (
+                  <Spinner size="large" />
+                ) : (
+                  selectedVersion && (
+                    <DatasetVisualizer
+                      dataset={dataset}
+                      previewData={previewData}
+                      columns={columns}
+                      version={versions.find(v => v.id === selectedVersion)}
+                    />
+                  )
+                )}
+              </SpaceBetween>
             )
           },
           {

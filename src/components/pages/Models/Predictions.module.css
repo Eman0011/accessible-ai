@@ -9,7 +9,6 @@
     resize: vertical;
 }
 
-/* Optional: Style the JSON content */
 .json-input textarea {
     max-height: 35vh;
     font-family: monospace;

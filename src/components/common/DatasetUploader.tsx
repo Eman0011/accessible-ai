@@ -26,9 +26,10 @@ const client = generateClient<Schema>();
 interface DatasetUploaderProps {
   onDatasetCreated: (dataset: Dataset) => void;
   projectId: string;
+  initialDataset?: Dataset;
 }
 
-const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, projectId }) => {
+const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, projectId, initialDataset }) => {
   const { userInfo } = useUser();
   const [datasetName, setDatasetName] = useState('');
   const [datasetDescription, setDatasetDescription] = useState('');
@@ -40,7 +41,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
   const [isUploadComplete, setIsUploadComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newVersion, setNewVersion] = useState<number>(1);
-  const [datasetId] = useState<string>(uuidv4());
+  const [datasetId, setDatasetId] = useState<string>(uuidv4());
   const [estimatedRowCount, setEstimatedRowCount] = useState<number | null>(null);
   const [actualRowCount, setActualRowCount] = useState<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -48,11 +49,22 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
   const [uploadBasePath, setUploadBasePath] = useState<string>('');
   const navigate = useNavigate();
 
-  useEffect(() => { 
-    if (file && !datasetName) {
-      setDatasetName(file.name.replace(/\.[^/.]+$/, ""));
+  useEffect(() => {
+    if (initialDataset) {
+      console.debug('Setting initial dataset data:', initialDataset);
+      setDatasetName(initialDataset.name);
+      setDatasetDescription(initialDataset.description || '');
+      setDatasetId(initialDataset.id);
+      fetchExistingVersions(initialDataset.id);
     }
-  }, [file]);
+  }, [initialDataset]);
+
+  useEffect(() => { 
+    if (file && !datasetName && !initialDataset) {
+      const nameFromFile = file.name.replace(/\.[^/.]+$/, "");
+      setDatasetName(nameFromFile);
+    }
+  }, [file, datasetName, initialDataset]);
 
   useEffect(() => {
     console.log('Attempting to create Web Worker');
@@ -115,6 +127,11 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     setEstimatedRowCount(null);
     setActualRowCount(null);
 
+    if (!initialDataset) {
+      const nameFromFile = file.name.replace(/\.[^/.]+$/, "");
+      setDatasetName(nameFromFile);
+    }
+
     const previewData: any[] = [];
     const previewRowCount = 5;
     let sampleSize = 0;
@@ -151,23 +168,87 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     });
   };
 
+  useEffect(() => {
+    const checkExistingDataset = async () => {
+      if (!datasetName || !projectId || initialDataset) return;
+
+      try {
+        const { data: existingDatasets } = await client.models.Dataset.list({
+          filter: { 
+            name: { eq: datasetName },
+            projectId: { eq: projectId }
+          }
+        });
+
+        if (existingDatasets && existingDatasets.length > 0) {
+          const existingDataset = existingDatasets[0];
+          console.debug('Found existing dataset:', existingDataset);
+          setDatasetId(existingDataset.id);
+          await fetchExistingVersions(existingDataset.id);
+        } else {
+          // Reset to version 1 if no existing dataset found
+          setNewVersion(1);
+          setCurrentVersion(0);
+        }
+      } catch (error) {
+        console.error('Error checking existing dataset:', error);
+      }
+    };
+
+    checkExistingDataset();
+  }, [datasetName, projectId, initialDataset]);
+
+  const fetchExistingVersions = async (datasetId: string) => {
+    try {
+      const { data: versions } = await client.models.DatasetVersion.list({
+        filter: { datasetId: { eq: datasetId } }
+      });
+      if (versions && versions.length > 0) {
+        const nextVersion = Math.max(...versions.map(v => v.version)) + 1;
+        console.debug('Setting next version:', nextVersion);
+        setNewVersion(nextVersion);
+        setCurrentVersion(nextVersion - 1);
+      }
+    } catch (error) {
+      console.error('Error fetching dataset versions:', error);
+      setError('Error determining version number');
+    }
+  };
+
   const createNewDataset = async () => {
     try {
-      const { data: newDataset } = await client.models.Dataset.create({
+      if (initialDataset) {
+        console.debug('Using existing dataset for new version:', initialDataset);
+        return initialDataset;
+      }
+
+      const { data: existingDatasets } = await client.models.Dataset.list({
+        filter: { 
+          name: { eq: datasetName },
+          projectId: { eq: projectId }
+        }
+      });
+
+      if (existingDatasets && existingDatasets.length > 0) {
+        setError('A dataset with this name already exists');
+        return null;
+      }
+
+      const newDataset = {
         id: datasetId,
         name: datasetName,
         description: datasetDescription,
-        owner: userInfo?.username || 'unknown_user',
-        ownerId: userInfo?.userId || 'unknown_user',
         projectId: projectId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      console.log("New Dataset: ", newDataset)
-      return newDataset;
+        owner: userInfo?.username || 'unknown_user',
+        ownerId: userInfo?.userId || 'unknown_user'
+      };
+
+      const response = await client.models.Dataset.create(newDataset);
+      return response.data;
     } catch (error) {
       console.error('Error creating dataset:', error);
-      throw error;
+      setError('Error creating dataset');
+      return null;
     }
   };
 
@@ -221,21 +302,19 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
     setError(null);
     setIsCreatingDataset(true);
     try {
-      // Create new dataset
-      const newDataset = await createNewDataset();
-      if (!newDataset || !newDataset.id) {
-        throw new Error('Failed to create dataset');
+      const dataset = initialDataset || await createNewDataset();
+      
+      if (!dataset) {
+        throw new Error('Failed to get or create dataset');
       }
 
-      // Create version for the new dataset
-      const newVersion = await createDatasetVersion(newDataset.id);
+      const newVersionResponse = await createDatasetVersion(dataset.id);
       
-      if (newVersion) {
-        // Fetch the complete dataset with its new version
-        const { data: updatedDataset } = await client.models.Dataset.get({ id: newDataset.id });
+      if (newVersionResponse) {
+        const { data: updatedDataset } = await client.models.Dataset.get({ id: dataset.id });
         onDatasetCreated(updatedDataset as unknown as Dataset);
         resetForm();
-        navigate(`/datasets/${newDataset.id}`);
+        navigate(`/datasets/${dataset.id}`);
       }
     } catch (error) {
       console.error('Error in dataset creation process:', error);

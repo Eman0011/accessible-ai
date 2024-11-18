@@ -3,12 +3,14 @@ import {
   SpaceBetween,
 } from '@cloudscape-design/components';
 import React, { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { Dataset } from '../../../types/models';
 import DatasetUploader from '../../common/DatasetUploader';
 
 const CreateDataset: React.FC = () => {
+  const location = useLocation();
+  const { initialDataset } = location.state || {};
   const { currentProject } = useContext(ProjectContext);
   const navigate = useNavigate();
 
@@ -17,13 +19,21 @@ const CreateDataset: React.FC = () => {
     navigate('/datasets');
   };
 
+  console.debug('Create Dataset received state:', { 
+    initialDataset, 
+    locationState: location.state 
+  });
+
   return (
     <SpaceBetween size="l">
-      <Header variant="h1">Create New Dataset for Project: {currentProject?.name || 'Loading...'}</Header>
+      <Header variant="h1">
+        {initialDataset ? 'Create New Version' : 'Create Dataset'}
+      </Header>
       {currentProject && (
         <DatasetUploader
           onDatasetCreated={handleDatasetCreated}
           projectId={currentProject.id}
+          initialDataset={initialDataset}
         />
       )}
     </SpaceBetween>

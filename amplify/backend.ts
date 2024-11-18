@@ -6,7 +6,7 @@ import { runTrainingJob } from './functions/run-training/resource';
 import { storage } from './storage/resource';
 // import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from "aws-cdk-lib/aws-iam";
-import { BATCH_JOB_ROLE, TRAINING_OUTPUT_BUCKET } from '../Config';
+import { BATCH_JOB_ROLE, TRAINING_OUTPUT_BUCKET, PREDICTIONS_OUTPUT_BUCKET } from '../Config';
 
 const backend = defineBackend({
   auth,
@@ -65,6 +65,22 @@ authenticatedRole.addToPrincipalPolicy(
   })
 );
 
+// Add S3 permissions for predictions output bucket
+authenticatedRole.addToPrincipalPolicy(
+  new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: [
+      's3:GetObject',
+      's3:ListBucket',
+      's3:GetBucketLocation',
+    ],
+    resources: [
+      `arn:aws:s3:::${PREDICTIONS_OUTPUT_BUCKET}`,
+      `arn:aws:s3:::${PREDICTIONS_OUTPUT_BUCKET}/*`,
+    ]
+  })
+);
+
 // Add a separate policy for run-inference lambda
 const runInferenceLambda = backend.runModelInference.resources.lambda;
 
@@ -74,4 +90,18 @@ runInferenceLambda.addToRolePolicy(new iam.PolicyStatement({
     "lambda:InvokeFunction",
   ],
   resources: ["*"],
+}));
+
+// Add write permissions for the inference lambda
+runInferenceLambda.addToRolePolicy(new iam.PolicyStatement({
+  sid: "AllowS3Access",
+  actions: [
+    "s3:PutObject",
+    "s3:GetObject",
+    "s3:ListBucket",
+  ],
+  resources: [
+    `arn:aws:s3:::${PREDICTIONS_OUTPUT_BUCKET}`,
+    `arn:aws:s3:::${PREDICTIONS_OUTPUT_BUCKET}/*`,
+  ],
 }));

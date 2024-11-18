@@ -29,32 +29,48 @@
 /* Pipeline Header and Badge */
 .pipelineHeader {
   position: relative;
+  margin-bottom: 16px;
 }
 
 .topPipelineBadge {
   position: absolute;
-  top: -15px;
-  right: -20px;
-  display: inline-flex;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #DAA520;
-  font-weight: 600;
-  padding: 8px;
-  background: var(--color-background-container-header);
-  border-radius: 8px;
-  box-shadow: 
-    0 2px 5px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  width: 120px;
 }
 
 .topPipelineIcon {
-  border-radius: 40px;
-  width: 80px;
-  height: 80px;
+  width: 120px;
+  height: 120px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
+  border-radius: 50%;
+  background: var(--color-background-container-content);
+  padding: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.topPipelineBadge span {
+  color: #DAA520;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+}
+
+.pipelineDescription {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #037f0c;
+  font-weight: 500;
+  padding-right: 140px;
+}
+
+.pipelineDescription span {
+  color: #037f0c;
 }
 
 /* Pipeline Step Cards */
@@ -130,6 +146,11 @@
 .alternativePipelines {
   margin-top: 16px;
   border-top: 1px solid var(--color-border-divider-default);
+}
+
+.alternativePipelinesText {
+  width: 70%;
+  margin-right: auto;
 }
 
 /* Arrow Navigation */
@@ -326,11 +347,7 @@
 }
 
 .versionDetailsCard {
-  background: var(--color-background-container-content);
-  border: 1px solid var(--color-border-divider-default);
-  border-radius: 8px;
-  padding: 16px;
-  margin-top: 8px;
+  padding: 0.5rem 0;
 }
 
 /* Add to your existing styles */

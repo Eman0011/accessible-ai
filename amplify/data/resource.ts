@@ -21,9 +21,9 @@ const schema = a.schema({
       updatedAt: a.datetime(),
       models: a.hasMany('Model', 'projectId'),
       datasets: a.hasMany('Dataset', 'projectId'),
+      predictions: a.hasMany('Prediction', 'projectId'),
       exploratoryAnalyses: a.hasMany('ExploratoryAnalysis', 'projectId'),
       reports: a.hasMany('Report', 'projectId'),
-      inferences: a.hasMany('Inference', 'projectId'),
       projectMembers: a.hasMany('ProjectMember', 'projectId'),
       organizationId: a.string().required(),
       organization: a.belongsTo('Organization', 'organizationId'),
@@ -130,7 +130,7 @@ const schema = a.schema({
       model: a.belongsTo('Model', 'modelId'),
       datasetVersion: a.belongsTo('DatasetVersion', 'datasetVersionId'),
       modelPerformances: a.hasMany('ModelPerformance', 'modelVersionId'),
-      inferences: a.hasMany('Inference', 'modelVersionId')
+      predictions: a.hasMany('Prediction', 'modelVersionId'),
     })
     .secondaryIndexes((index) => [
       index('modelId').sortKeys(['version']),
@@ -154,23 +154,47 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.authenticated()]),
 
-  // Inference Entity
-  Inference: a
+  // Prediction Entity (replacing Inference)
+  Prediction: a
     .model({
       id: a.id(),
-      projectId: a.string().required(),
       modelVersionId: a.string().required(),
+      projectId: a.string().required(),
+      type: a.string().required(), // 'ADHOC' | 'BATCH'
+      status: a.string().required(), // 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+      submittedBy: a.string().required(),
+      
+      // Input data - store as stringified JSON
+      adhocInput: a.string(),
       inputDataPath: a.string(),
+      
+      // Output data - store as stringified JSON
+      adhocOutput: a.string(),
       outputDataPath: a.string(),
-      inferenceTimestamp: a.datetime().required(),
+      
+      // Performance metrics - store as stringified JSON
       inferenceLatency: a.integer(),
-      computeResources: a.json(),
-      environmentDetails: a.json(),
+      computeResources: a.string(),
+      environmentDetails: a.string(),
+      error: a.string(),
+      
+      // Timestamps
+      startTime: a.datetime(),
+      endTime: a.datetime(),
       createdAt: a.datetime(),
       updatedAt: a.datetime(),
+      
+      // Relationships
       modelVersion: a.belongsTo('ModelVersion', 'modelVersionId'),
       project: a.belongsTo('Project', 'projectId'),
     })
+    .secondaryIndexes((index) => [
+      index('modelVersionId').sortKeys(['createdAt']),
+      index('projectId').sortKeys(['createdAt']),
+      index('submittedBy').sortKeys(['createdAt']),
+      index('type').sortKeys(['createdAt']),
+      index('status').sortKeys(['createdAt']),
+    ])
     .authorization((allow) => [allow.authenticated()]),
 
   // ModelPerformance Entity

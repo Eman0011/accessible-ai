@@ -1,653 +1,251 @@
-import { FileUploader } from '@aws-amplify/ui-react-storage';
-import { Alert, Box, Button, Container, FormField, Header, Icon, Input, Select, SpaceBetween, Spinner, StatusIndicator, Tabs, Textarea, Toggle } from '@cloudscape-design/components';
+import { SpaceBetween, Header, Container, Tabs, Button, Box } from '@cloudscape-design/components';
+import React, { useState } from 'react';
+import { ModelSelector } from './components/ModelSelector';
+import { VersionSelector } from './components/VersionSelector';
+import { MakePredictionTab } from './PredictionTabs/MakePredictionTab';
+import { HistoryTab } from './PredictionTabs/HistoryTab';
+import { usePredictions } from './hooks/usePredictions';
 import { generateClient } from 'aws-amplify/api';
-import Papa from 'papaparse';
-import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import type { Schema } from '../../../../amplify/data/resource';
 import { useUser } from '../../../contexts/UserContext';
-import { Model, ModelVersion } from '../../../types/models';
-import { generateStoragePath } from '../../../utils/storageUtils';
-import DatasetVisualizer from '../../common/DatasetVisualizer';
-import ModelPipelineVisualizer from '../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
-import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
-import styles from './Predictions.module.css';
+import type { Schema } from '../../../../amplify/data/resource';
+import { Prediction } from '../../../../types/models';
+import { useLocation } from 'react-router-dom';
 
 const client = generateClient<Schema>();
-
-interface ModelSelectorProps {
-    models: Model[];
-    selectedModel: Model | null;
-    onModelSelect: (model: Model | null) => void;
-}
-
-const ModelSelector: React.FC<ModelSelectorProps> = ({ models, selectedModel, onModelSelect }) => (
-    <SpaceBetween size="s">
-        <Header variant="h2">
-            Select Model
-        </Header>
-        <FormField
-            description="Choose a model to run predictions with"
-        >
-            <Select
-                selectedOption={selectedModel ? { label: selectedModel.name, value: selectedModel.id } : null}
-                onChange={({ detail }) => onModelSelect(models.find(model => model.id === detail.selectedOption.value) || null)}
-                options={models.map(model => ({ 
-                    label: model.name, 
-                    value: model.id,
-                    description: model.description 
-                }))}
-                placeholder="Choose a model"
-            />
-        </FormField>
-    </SpaceBetween>
-);
-
-interface VersionSelectorProps {
-    modelVersions: ModelVersion[];
-    selectedVersion: ModelVersion | null;
-    onVersionSelect: (version: ModelVersion | null) => void;
-}
-
-const VersionSelector: React.FC<VersionSelectorProps> = ({ modelVersions, selectedVersion, onVersionSelect }) => (
-    <FormField label="Select Model Version">
-        <Select
-            selectedOption={selectedVersion ? 
-                { 
-                    label: `Version ${selectedVersion.version} (${new Date(selectedVersion.createdAt || '').toLocaleDateString()})`, 
-                    value: selectedVersion.id 
-                } : null
-            }
-            onChange={({ detail }) => {
-                const version = modelVersions.find(v => v.id === detail.selectedOption.value);
-                if (version) onVersionSelect(version);
-            }}
-            options={modelVersions.map(version => ({
-                label: `Version ${version.version} (${new Date(version.createdAt || '').toLocaleDateString()})`,
-                value: version.id,
-                description: version.status
-            }))}
-        />
-    </FormField>
-);
-
-interface AdhocFormProps {
-    featureNames: string[];
-    featureInputs: Record<string, string>;
-    onFeatureInputChange: (feature: string, value: string) => void;
-    disabled?: boolean;
-}
-
-const AdhocForm: React.FC<AdhocFormProps> = ({ 
-    featureNames, 
-    featureInputs, 
-    onFeatureInputChange,
-    disabled 
-}) => (
-    <SpaceBetween size="m">
-        {featureNames.map(feature => (
-            <FormField key={feature} label={feature}>
-                <Input
-                    value={featureInputs[feature] || ''}
-                    onChange={({ detail }) => onFeatureInputChange(feature, detail.value)}
-                    disabled={disabled}
-                />
-            </FormField>
-        ))}
-    </SpaceBetween>
-);
-
-interface JsonInputProps {
-    jsonInput: string;
-    jsonError: string | null;
-    onJsonChange: (value: string) => void;
-    disabled?: boolean;
-}
-
-const JsonInput: React.FC<JsonInputProps> = ({ 
-    jsonInput, 
-    jsonError, 
-    onJsonChange,
-    disabled 
-}) => (
-    <FormField 
-        label="JSON Input"
-        errorText={jsonError}
-        className={styles['json-input-container']}
-    >
-        <Textarea
-            value={jsonInput}
-            onChange={({ detail }) => onJsonChange(detail.value)}
-            rows={20}
-            className={styles['json-input']}
-            disabled={disabled}
-        />
-    </FormField>
-);
-
-const JsonOutput: React.FC<{ data: any; isLastStep?: boolean }> = ({ data, isLastStep = true }) => {
-    // Parse the nested response
-    let parsedResponse;
-    try {
-        const firstParse = typeof data === 'string' ? JSON.parse(data) : data;
-        if (firstParse.data && typeof firstParse.data === 'string') {
-            parsedResponse = JSON.parse(firstParse.data);
-        } else {
-            parsedResponse = firstParse;
-        }
-    } catch (error) {
-        console.error('Error parsing response:', error);
-        parsedResponse = { statusCode: 500, body: { message: 'Error parsing response' } };
-    }
-
-    const isSuccess = parsedResponse.statusCode === 200;
-    const resultValue = isSuccess 
-        ? (Array.isArray(parsedResponse.body) ? parsedResponse.body[0] : parsedResponse.body)
-        : 'X';  // Show X for failures
-    
-    const errorMessage = !isSuccess ? parsedResponse.body.message : null;
-    
-    return (
-        <SpaceBetween size="m" direction="vertical" alignItems="start">
-            <div className={styles['arrow-container']}>
-                <div className={styles.arrow}>
-                    <Icon name="angle-right" size="big" />
-                </div>
-                <div className={`${styles['step-card']} ${isLastStep ? styles['last-step'] : ''}`}>
-                    <div className={styles['step-title']}>
-                        Predicted Value
-                    </div>
-                    <div className={`${styles['result-circle']} ${!isSuccess ? styles['error-circle'] : ''}`}>
-                        <div className={styles['result-value']}>
-                            {isSuccess ? resultValue : (
-                                <Icon 
-                                    name="status-negative" 
-                                    size="big" 
-                                    variant="error"
-                                />
-                            )}
-                        </div>
-                    </div>
-                    <div className={styles['status-container']}>
-                        <StatusIndicator type={isSuccess ? "success" : "error"}>
-                            {isSuccess ? "Prediction completed" : "Prediction failed"}
-                        </StatusIndicator>
-                    </div>
-                </div>
-            </div>
-            {!isSuccess && errorMessage && (
-                <Alert
-                    type="error"
-                    header="Prediction Error"
-                >
-                    {errorMessage}
-                </Alert>
-            )}
-        </SpaceBetween>
-    );
-};
 
 const Predictions: React.FC = () => {
     const location = useLocation();
     const navigationState = location.state as { 
         selectedModelId?: string;
-        selectedModelVersion?: string;
+        selectedModelVersionId?: string;
     } | undefined;
 
-    const [models, setModels] = useState<Model[]>([]);
-    const [selectedModel, setSelectedModel] = useState<Model | null>(null);
-    const [modelVersions, setModelVersions] = useState<ModelVersion[]>([]);
-    const [selectedModelVersion, setSelectedModelVersion] = useState<ModelVersion | null>(null);
-    const [featureNames, setFeatureNames] = useState<string[]>([]);
-    const [featureInputs, setFeatureInputs] = useState<Record<string, string>>({});
-    const [isAdhocMode, setIsAdhocMode] = useState(true);
-    const [batchFile, setBatchFile] = useState<File | null>(null);
-    const [results, setResults] = useState<any>(null);
-    const [filePreview, setFilePreview] = useState<string | null>(null);
-    const [previewData, setPreviewData] = useState<any[]>([]);
-    const [columns, setColumns] = useState<any[]>([]);
-    const [jsonInput, setJsonInput] = useState<string>('');
-    const [adhocInputMode, setAdhocInputMode] = useState<'form' | 'json'>('form');
-    const [jsonError, setJsonError] = useState<string | null>(null);
-    const [uploadBasePath, setUploadBasePath] = useState<string>('');
-    const [isLoading, setIsLoading] = useState(false);
     const { userInfo } = useUser();
-    const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState('predict');
+    const [adhocInputMode, setAdhocInputMode] = useState<'form' | 'json'>('form');
+    const [jsonInput, setJsonInput] = useState('');
+    const [results, setResults] = useState<any>(null);
+    const [selectedPrediction, setSelectedPrediction] = useState<Prediction>();
 
-    useEffect(() => {
-        const fetchModels = async () => {
-            const response = await client.models.Model.list();
-            const typedModels = response.data.map(model => ({
-                id: model.id || '',
-                name: model.name || '',
-                description: model.description || '',
-                owner: model.owner || '',
-                projectId: model.projectId || '',
-                createdAt: model.createdAt || null,
-                updatedAt: model.updatedAt || null
-            })) as Model[];
-            setModels(typedModels);
+    const {
+        models,
+        selectedModel,
+        setSelectedModel,
+        modelVersions,
+        selectedModelVersion,
+        setSelectedModelVersion,
+        predictions,
+        predictionTypeFilter,
+        setPredictionTypeFilter,
+        isAdhoc,
+        setIsAdhoc,
+        featureNames,
+        featureInputs,
+        handleFeatureInputChange,
+        isLoading,
+        setIsLoading,
+        paginationProps,
+        loading,
+        uploadBasePath,
+        refreshPredictions
+    } = usePredictions(navigationState?.selectedModelId, navigationState?.selectedModelVersionId);
 
-            if (navigationState?.selectedModelId) {
-                const preSelectedModel = typedModels.find(
-                    model => model.id === navigationState.selectedModelId
-                );
-                if (preSelectedModel) {
-                    setSelectedModel(preSelectedModel);
+    const handleSubmit = async () => {
+        if (!selectedModelVersion || !userInfo?.username) {
+            console.error('Missing required fields:', {
+                hasModelVersion: !!selectedModelVersion,
+                hasUsername: !!userInfo?.username
+            });
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            if (isAdhoc) {
+                let inputData: Record<string, any>;
+                if (adhocInputMode === 'json') {
+                    try {
+                        inputData = JSON.parse(jsonInput);
+                    } catch (error) {
+                        console.error('Invalid JSON input:', error);
+                        return;
+                    }
+                } else {
+                    inputData = Object.entries(featureInputs).reduce((acc, [key, value]) => ({
+                        ...acc,
+                        [key]: isNaN(Number(value)) ? value : Number(value)
+                    }), {});
                 }
-            }
-        };
-        fetchModels();
-    }, [navigationState?.selectedModelId]);
 
-    useEffect(() => {
-        const fetchModelVersions = async () => {
-            if (selectedModel) {
-                const { data: versions } = await client.models.ModelVersion.list({
-                    filter: { modelId: { eq: selectedModel.id } }
+                console.debug('Submitting adhoc prediction:', {
+                    modelVersionId: selectedModelVersion.id,
+                    inputData,
+                    username: userInfo.username
+                });
+
+                const payload = {
+                    modelVersionId: selectedModelVersion.id,
+                    basePath: selectedModelVersion.s3OutputPath,
+                    targetFeature: selectedModelVersion.targetFeature,
+                    submittedBy: userInfo.username,
+                    input: JSON.stringify(inputData)
+                };
+
+                const response = await client.queries.runModelInference(payload);
+                console.debug('Received inference response:', response);
+                
+                // Parse the response properly
+                let parsedResponse;
+                try {
+                    parsedResponse = typeof response.data === 'string' 
+                        ? JSON.parse(response.data) 
+                        : response.data;
+                    
+                    if (parsedResponse.data && typeof parsedResponse.data === 'string') {
+                        parsedResponse = JSON.parse(parsedResponse.data);
+                    }
+                } catch (error) {
+                    console.error('Error parsing response:', error);
+                    throw new Error('Failed to parse prediction response');
+                }
+                
+                // Create prediction record with properly parsed data
+                const prediction = await client.models.Prediction.create({
+                    id: crypto.randomUUID(),
+                    modelVersionId: selectedModelVersion.id,
+                    projectId: selectedModel!.projectId,
+                    type: 'ADHOC',
+                    status: 'COMPLETED',
+                    submittedBy: userInfo.username,
+                    adhocInput: JSON.stringify(inputData),
+                    adhocOutput: JSON.stringify(parsedResponse),
+                    startTime: new Date().toISOString(),
+                    endTime: new Date().toISOString()
+                });
+
+                console.debug('Created prediction record:', prediction);
+                setResults(parsedResponse);
+            }
+
+            // After successful prediction, refresh the predictions list
+            await refreshPredictions();
+        } catch (error) {
+            console.error('Prediction error:', error);
+            // TODO: Show error alert
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCopyPrediction = (prediction: Prediction) => {
+        if (prediction.type === 'ADHOC' && prediction.adhocInput) {
+            try {
+                const input = JSON.parse(prediction.adhocInput);
+                
+                // Set JSON input
+                setJsonInput(JSON.stringify(input, null, 2));
+                
+                // Set form inputs
+                Object.entries(input).forEach(([key, value]) => {
+                    handleFeatureInputChange(key, value?.toString() || '');
                 });
                 
-                const typedVersions = versions.map(v => ({
-                    id: v.id || '',
-                    modelId: v.modelId || '',
-                    version: v.version || 0,
-                    status: v.status || '',
-                    targetFeature: v.targetFeature || '',
-                    fileUrl: v.fileUrl || '',
-                    s3OutputPath: v.s3OutputPath || '',
-                    datasetVersionId: v.datasetVersionId || '',
-                    trainingJobId: v.trainingJobId || '',
-                    performanceMetrics: v.performanceMetrics || {},
-                    createdAt: v.createdAt || null,
-                    updatedAt: v.updatedAt || null
-                })) as ModelVersion[];
-
-                const sortedVersions = typedVersions.sort((a, b) => b.version - a.version);
-                setModelVersions(sortedVersions);
-
-                if (navigationState?.selectedModelVersion) {
-                    const preSelectedVersion = sortedVersions.find(
-                        version => version.id === navigationState.selectedModelVersion
-                    );
-                    if (preSelectedVersion) {
-                        setSelectedModelVersion(preSelectedVersion);
-                    }
-                } else if (sortedVersions.length > 0) {
-                    setSelectedModelVersion(sortedVersions[0]);
-                }
+                // Switch to prediction tab
+                setActiveTab('predict');
+                
+                // Optionally, you can choose which input mode to show
+                setAdhocInputMode('form'); // or 'json' depending on preference
+                
+                // Make sure we're in adhoc mode
+                setIsAdhoc(true);
+                
+                console.debug('Copied prediction input:', {
+                    input,
+                    prediction
+                });
+            } catch (e) {
+                console.error('Error parsing prediction input:', e);
             }
-        };
-
-        if (selectedModel) {
-            fetchModelVersions();
-        }
-    }, [selectedModel, navigationState?.selectedModelVersion]);
-
-    useEffect(() => {
-        const fetchFeatureNames = async () => {
-            if (selectedModelVersion) {
-                try {
-                    const feature_names = await getS3JSONFromBucket<string[]>(
-                        `${selectedModelVersion.s3OutputPath}/feature_names.json`
-                    );
-                    
-                    setFeatureNames(Array.isArray(feature_names) ? feature_names : []);
-                    const initialInputs = feature_names.reduce<Record<string, string>>((acc, feature) => ({
-                        ...acc,
-                        [feature]: ''
-                    }), {});
-                    setFeatureInputs(initialInputs);
-
-                    const template = feature_names.reduce((acc, feature) => ({
-                        ...acc,
-                        [feature]: ''
-                    }), {});
-                    setJsonInput(JSON.stringify(template, null, 2));
-                } catch (error) {
-                    console.error('Error fetching feature names:', error);
-                    setFeatureNames([]);
-                }
-            }
-        };
-
-        if (selectedModelVersion) {
-            fetchFeatureNames();
-        }
-    }, [selectedModelVersion]);
-
-    useEffect(() => {
-        if (selectedModelVersion && selectedModel && userInfo) {
-            const timestamp = new Date().toISOString().replace(/:/g, '-');
-            const basePath = generateStoragePath({
-                userId: userInfo.userId,
-                projectId: selectedModel.projectId,
-                resourceType: 'predictions',
-                resourceId: selectedModelVersion.id,
-                version: selectedModelVersion.version,
-                fileName: timestamp
-            });
-            console.debug("uploadBasePath", basePath);
-            setUploadBasePath(basePath);
-        }
-    }, [selectedModelVersion, selectedModel, userInfo]);
-
-    const validateAndParseJSON = (jsonString: string): Record<string, string> | null => {
-        try {
-            const parsed = JSON.parse(jsonString);
-            setJsonError(null);
-            return parsed;
-        } catch (error) {
-            setJsonError('Invalid JSON format');
-            return null;
         }
     };
 
-    const handleAdhocInference = async () => {
-        if (!selectedModelVersion || !selectedModelVersion.targetFeature || 
-            !selectedModelVersion.s3OutputPath || !userInfo?.username) {
-            console.debug('Missing required fields');
-            return;
-        }
-        
-        setIsLoading(true);
-        try {
-            let inputData: Record<string, any>;
-            if (adhocInputMode === 'json') {
-                const parsed = validateAndParseJSON(jsonInput);
-                if (!parsed) return;
-                inputData = parsed;
-            } else {
-                inputData = Object.entries(featureInputs).reduce((acc, [key, value]) => ({
-                    ...acc,
-                    [key]: isNaN(Number(value)) ? value : Number(value)
-                }), {});
-            }
-
-            const payload = {
-                modelVersionId: selectedModelVersion.id,
-                basePath: selectedModelVersion.s3OutputPath,
-                targetFeature: selectedModelVersion.targetFeature,
-                submittedBy: userInfo.username,
-                input: JSON.stringify(inputData)
-            };
-            
-            console.debug("Inference payload:", payload);
-
-            const response = await client.queries.runModelInference(payload);
-            console.debug("Inference response:", response);
-            setResults(response.data);
-        } catch (error) {
-            console.error('Inference error:', error);
-        } finally {
-            setIsLoading(false);
-        }
+    const makePredictionProps = {
+        selectedModel,
+        selectedModelVersion,
+        isAdhoc,
+        setIsAdhoc,
+        featureNames,
+        featureInputs,
+        onFeatureInputChange: handleFeatureInputChange,
+        isLoading,
+        onSubmit: handleSubmit,
+        uploadBasePath,
+        results,
+        adhocInputMode,
+        setAdhocInputMode,
+        jsonInput,
+        setJsonInput
     };
 
-    const handleBatchInference = async () => {
-        if (!batchFile || !selectedModelVersion || !selectedModelVersion.targetFeature || 
-            !selectedModelVersion.s3OutputPath || !userInfo?.username) {
-            console.debug('Missing required fields');
-            return;
-        }
-        
-        setIsLoading(true);
-        try {
-            const payload = {
-                modelVersionId: selectedModelVersion.id,
-                basePath: selectedModelVersion.s3OutputPath,
-                targetFeature: selectedModelVersion.targetFeature,
-                submittedBy: userInfo.username,
-                inputDataPath: `${uploadBasePath}/${batchFile.name}`
-            };
-            
-            console.debug("Batch inference payload:", payload);
-
-            const response = await client.queries.runModelInference(payload);
-            console.debug("Batch inference response:", response);
-            setResults(response.data);
-        } catch (error) {
-            console.debug('Batch inference error:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const updateTable = (data: any[]) => {
-        if (!data.length) return;
-        
-        const cols = Object.keys(data[0]).map(field => ({
-            id: field,
-            header: field,
-            cell: (item: any) => item[field]
-        }));
-        setColumns(cols);
-        setPreviewData(data);
-    };
-
-    const processFile = async ({ file }: { file: File }) => {
-        console.debug("processFile started", { fileName: file.name, fileSize: file.size });
-        setBatchFile(file);
-        setError(null);
-
-        return new Promise<{ file: File; key: string }>((resolve, reject) => {
-            Papa.parse(file, {
-                preview: 10,
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => {
-                    if (results.meta && results.meta.fields) {
-                        updateTable(results.data);
-                        resolve({ file, key: file.name });
-                    }
-                },
-                error: (error) => {
-                    console.error('Error parsing file:', error);
-                    setError(`Error parsing file: ${error.message}`);
-                    reject(error);
-                },
-            });
-        });
+    const historyProps = {
+        predictions,
+        loading,
+        predictionTypeFilter,
+        setPredictionTypeFilter,
+        paginationProps,
+        onRefresh: refreshPredictions,
+        onCopyPrediction: handleCopyPrediction,
+        selectedPrediction,
+        onSelectionChange: setSelectedPrediction
     };
 
     return (
         <SpaceBetween size="l">
-            <Header variant="h1">Run Model Predictions</Header>
-            
-            <div style={{ display: 'flex', width: '100%', gap: '24px' }}>
-                <div style={{ 
-                    width: '300px',
-                    minWidth: '300px',
-                    flexShrink: 0
-                }}>
-                    <SpaceBetween size="m">
-                        <Container>
-                            <ModelSelector 
-                                models={models}
-                                selectedModel={selectedModel}
-                                onModelSelect={setSelectedModel}
+            <Header variant="h1">
+                {activeTab === 'predict' ? 'Run Model Predictions' : 'Prediction History'}
+            </Header>
+
+            <Container>
+                <SpaceBetween size="m">
+                    <ModelSelector 
+                        models={models}
+                        selectedModel={selectedModel}
+                        onModelSelect={setSelectedModel}
+                    />
+                    
+                    {selectedModel && (
+                        <>
+                            <VersionSelector
+                                modelVersions={modelVersions}
+                                selectedVersion={selectedModelVersion}
+                                onVersionSelect={setSelectedModelVersion}
                             />
-                            
-                            {selectedModel && (
-                                <VersionSelector
-                                    modelVersions={modelVersions}
-                                    selectedVersion={selectedModelVersion}
-                                    onVersionSelect={setSelectedModelVersion}
-                                />
-                            )}
-                        </Container>
+                            <Box variant="p" color="text-body-secondary">
+                                {selectedModel.description}
+                            </Box>
+                        </>
+                    )}
+                </SpaceBetween>
+            </Container>
 
-                        {selectedModelVersion && (
-                            <Container
-                                header={<Header variant="h2">Prediction Input</Header>}
-                            >
-                                <SpaceBetween size="m">
-                                    <div>
-                                        <Box variant="awsui-key-label">Prediction Type</Box>
-                                        <div style={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: '1rem',
-                                            marginTop: '8px'
-                                        }}>
-                                            <Box color={isAdhocMode ? 'text-label' : 'text-body-secondary'}>
-                                                Ad-hoc
-                                            </Box>
-                                            <Toggle
-                                                onChange={({ detail }) => setIsAdhocMode(!detail.checked)}
-                                                checked={!isAdhocMode}
-                                                disabled={isLoading}
-                                            />
-                                            <Box color={!isAdhocMode ? 'text-label' : 'text-body-secondary'}>
-                                                Batch
-                                            </Box>
-                                        </div>
-                                    </div>
-
-                                    {isAdhocMode ? (
-                                        <SpaceBetween size="m">
-                                            <Tabs
-                                                tabs={[
-                                                    {
-                                                        label: "Form Input",
-                                                        id: "form",
-                                                        content: (
-                                                            <AdhocForm
-                                                                featureNames={featureNames}
-                                                                featureInputs={featureInputs}
-                                                                onFeatureInputChange={(feature, value) => 
-                                                                    setFeatureInputs(prev => ({
-                                                                        ...prev,
-                                                                        [feature]: value
-                                                                    }))
-                                                                }
-                                                                disabled={isLoading}
-                                                            />
-                                                        )
-                                                    },
-                                                    {
-                                                        label: "JSON Input",
-                                                        id: "json",
-                                                        content: (
-                                                            <JsonInput
-                                                                jsonInput={jsonInput}
-                                                                jsonError={jsonError}
-                                                                onJsonChange={(value) => {
-                                                                    setJsonInput(value);
-                                                                    validateAndParseJSON(value);
-                                                                }}
-                                                                disabled={isLoading}
-                                                            />
-                                                        )
-                                                    }
-                                                ]}
-                                                onChange={({ detail }) => 
-                                                    setAdhocInputMode(detail.activeTabId as 'form' | 'json')
-                                                }
-                                            />
-
-                                            <Button 
-                                                onClick={handleAdhocInference} 
-                                                disabled={!selectedModelVersion || 
-                                                     (adhocInputMode === 'json' && !!jsonError) || 
-                                                     isLoading}
-                                                loading={isLoading}
-                                            >
-                                                Run Ad-hoc Prediction
-                                            </Button>
-                                        </SpaceBetween>
-                                    ) : (
-                                        <SpaceBetween size="m">
-                                            <FormField 
-                                                label="Upload Batch File"
-                                                description="Upload a CSV file containing the data for batch predictions."
-                                            >
-                                                <Box margin={{ bottom: 's' }}>
-                                                    <FileUploader
-                                                        path={uploadBasePath}
-                                                        acceptedFileTypes={['.csv']}
-                                                        maxFileCount={1}
-                                                        processFile={processFile}
-                                                        accessLevel="private"
-                                                    />
-                                                </Box>
-                                            </FormField>
-                                            
-                                            {batchFile && previewData.length > 0 && (
-                                                <DatasetVisualizer
-                                                    dataset={{
-                                                        id: 'preview',
-                                                        name: batchFile.name,
-                                                        description: 'Batch inference preview',
-                                                        owner: '',
-                                                        projectId: '',
-                                                    }}
-                                                    previewData={previewData}
-                                                    columns={columns}
-                                                    version={{
-                                                        uploadDate: new Date().toISOString(),
-                                                        size: batchFile.size,
-                                                        rowCount: previewData.length,
-                                                        version: 1
-                                                    }}
-                                                />
-                                            )}
-
-                                            <Button 
-                                                onClick={handleBatchInference} 
-                                                disabled={!selectedModelVersion || !batchFile || isLoading}
-                                                loading={isLoading}
-                                            >
-                                                Run Batch Inference
-                                            </Button>
-                                        </SpaceBetween>
-                                    )}
-                                </SpaceBetween>
-                            </Container>
-                        )}
-                    </SpaceBetween>
-                </div>
-
-                <div style={{ 
-                    flex: 1,
-                    minWidth: 0,
-                    overflow: 'hidden'
-                }}>
-                    <SpaceBetween size="m">
-                        {selectedModelVersion && (
-                            <div style={{ overflowX: 'auto' }}>
-                                <ModelPipelineVisualizer 
-                                    modelVersion={selectedModelVersion}
-                                />
-                            </div>
-                        )}
-
-                        <Container
-                            header={<Header variant="h2">Model Output</Header>}
-                        >
-                            {isLoading ? (
-                                <Box textAlign="left" padding="l">
-                                    <SpaceBetween size="m" direction="vertical" alignItems="start">
-                                        <Spinner size="large" />
-                                        <Box variant="p">
-                                            Running inference...
-                                        </Box>
-                                    </SpaceBetween>
-                                </Box>
-                            ) : results ? (
-                                <JsonOutput data={results} />
-                            ) : (
-                                <Box 
-                                    textAlign="left"
-                                    color="text-body-secondary" 
-                                    padding="l"
-                                >
-                                    No results yet. Run a prediction to see the output.
-                                </Box>
-                            )}
-                        </Container>
-                    </SpaceBetween>
-                </div>
-            </div>
+            {selectedModelVersion && (
+                <Tabs
+                    activeTabId={activeTab}
+                    onChange={({ detail }) => setActiveTab(detail.activeTabId)}
+                    tabs={[
+                        {
+                            id: "predict",
+                            label: "Make Prediction",
+                            content: <MakePredictionTab {...makePredictionProps} />
+                        },
+                        {
+                            id: "history",
+                            label: "History",
+                            content: <HistoryTab {...historyProps} />
+                        }
+                    ]}
+                />
+            )}
         </SpaceBetween>
     );
 };

@@ -6,7 +6,8 @@ import {
   SpaceBetween,
   Table,
   TableProps,
-  TextFilter
+  TextFilter,
+  StatusIndicator
 } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import React, { useContext, useEffect, useState } from 'react';
@@ -87,6 +88,23 @@ const ModelsHome: React.FC = () => {
     , undefined);
   };
 
+  const getStatusType = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'TRAINING_COMPLETED':
+        return 'success';
+      case 'TRAINING_FAILED':
+        return 'error';
+      case 'TRAINING':
+        return 'in-progress';
+      case 'SUBMITTED':
+        return 'pending';
+      case 'DRAFT':
+        return 'info';
+      default:
+        return 'pending';
+    }
+  };
+
   const columnDefinitions: TableProps.ColumnDefinition<Model>[] = [
     {
       id: 'name',
@@ -122,7 +140,12 @@ const ModelsHome: React.FC = () => {
       header: 'Status',
       cell: (item) => {
         const latestVersion = getLatestVersion(item.id);
-        return latestVersion ? latestVersion.status : '-';
+        const status = latestVersion ? latestVersion.status : '-';
+        return status === '-' ? status : (
+          <StatusIndicator type={getStatusType(status)}>
+            {status.replace(/_/g, ' ')}
+          </StatusIndicator>
+        );
       }
     },
     {

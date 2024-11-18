@@ -140,3 +140,39 @@ export interface OrganizationAccess {
   role: 'admin' | 'member' | 'viewer';
   permissions: string[];
 }
+
+export type PredictionType = 'ADHOC' | 'BATCH';
+export type PredictionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface Prediction {
+  id: string;
+  modelVersionId: string;
+  projectId: string;
+  type: PredictionType;
+  status: PredictionStatus;
+  submittedBy: string;
+  
+  // Input data stored as stringified JSON
+  adhocInput?: string;
+  inputDataPath?: string;
+  
+  // Output data stored as stringified JSON
+  adhocOutput?: string;
+  outputDataPath?: string;
+  
+  // Performance metrics
+  inferenceLatency?: number;
+  computeResources?: string;  // Stored as stringified JSON
+  environmentDetails?: string;  // Stored as stringified JSON
+  error?: string;
+  
+  // Timestamps
+  startTime?: string;
+  endTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  
+  // Relationships
+  modelVersion?: ModelVersion;
+  project?: Project;
+}

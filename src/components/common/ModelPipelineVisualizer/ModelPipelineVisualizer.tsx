@@ -2,7 +2,7 @@ import { Alert, Box, Container, ExpandableSection, Header, Icon } from '@cloudsc
 import React, { useEffect, useState } from 'react';
 import { ModelVersion } from '../../../types/models';
 import { getPipelineStepIcon, hasCustomIcon } from '../../../utils/PipelineIconUtils';
-import { getS3JSONFromBucket } from '../utils/S3Utils';
+import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import styles from './ModelPipelineVisualizer.module.css';
 
 interface ModelPipelineVisualizerProps {
