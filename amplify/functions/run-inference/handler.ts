@@ -51,7 +51,7 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
       input,
       inputDataPath,
       outputDataPath,
-      isDev: true,
+      // isDev: true,
     };
 
     const lambdaResponse = await lambda.invoke({
