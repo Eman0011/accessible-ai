@@ -3,24 +3,10 @@ import { useContext, useEffect, useState } from 'react';
 import amplify_config from '../../../../../amplify_outputs.json';
 import { ProjectContext } from '../../../../contexts/ProjectContext';
 import { useUser } from '../../../../contexts/UserContext';
-import { Model, ModelVersion, Prediction } from '../../../../types/models';
+import { Model, ModelStatus, ModelVersion, Prediction, PredictionType, PredictionStatus } from '../../../../types/models';
 import { generateStoragePath } from '../../../../utils/storageUtils';
 import { getS3JSONFromBucket } from '../../../common/utils/S3Utils';
-
-// Define a basic Schema type until we can properly import it
-type Schema = {
-    models: {
-        Model: {
-            list: (options?: { filter?: any }) => Promise<{ data: Model[] }>;
-        };
-        ModelVersion: {
-            list: (options?: { filter?: any }) => Promise<{ data: ModelVersion[] }>;
-        };
-        Prediction: {
-            list: (options?: { filter?: any }) => Promise<{ data: Prediction[] }>;
-        };
-    };
-};
+import type { Schema } from '../../../../../amplify/data/resource';
 
 const client = generateClient<Schema>();
 
@@ -55,7 +41,18 @@ export const usePredictions = (
                 const response = await client.models.Model.list({
                     filter: { projectId: { eq: currentProject.id } }
                 });
-                setModels(response.data);
+                
+                const mappedModels: Model[] = response.data.map(m => ({
+                    id: m.id || '',
+                    name: m.name || '',
+                    description: m.description || '',
+                    owner: m.owner || '',
+                    projectId: m.projectId || '',
+                    createdAt: m.createdAt || null,
+                    updatedAt: m.updatedAt || null
+                }));
+                
+                setModels(mappedModels);
             } catch (error) {
                 console.error('Error fetching models:', error);
             }
@@ -63,7 +60,7 @@ export const usePredictions = (
         fetchModels();
     }, [currentProject?.id]);
 
-    // Fetch model versions when model is selected
+    // Fetch model versions
     useEffect(() => {
         const fetchModelVersions = async () => {
             if (!selectedModel) return;
@@ -71,10 +68,25 @@ export const usePredictions = (
                 const response = await client.models.ModelVersion.list({
                     filter: { modelId: { eq: selectedModel.id } }
                 });
-                const sortedVersions = response.data.sort((a: ModelVersion, b: ModelVersion) => b.version - a.version);
+                
+                const mappedVersions: ModelVersion[] = response.data.map(v => ({
+                    id: v.id || '',
+                    modelId: v.modelId || '',
+                    version: v.version || 0,
+                    status: v.status as ModelStatus || 'DRAFT',
+                    targetFeature: v.targetFeature || '',
+                    fileUrl: v.fileUrl || '',
+                    s3OutputPath: v.s3OutputPath || '',
+                    trainingJobId: v.trainingJobId || '',
+                    performanceMetrics: {},
+                    createdAt: v.createdAt || null,
+                    updatedAt: v.updatedAt || null,
+                    datasetVersionId: v.datasetVersionId || ''
+                }));
+
+                const sortedVersions = mappedVersions.sort((a, b) => b.version - a.version);
                 setModelVersions(sortedVersions);
                 
-                // Auto-select the latest version
                 if (sortedVersions.length > 0) {
                     setSelectedModelVersion(sortedVersions[0]);
                 }
@@ -85,7 +97,7 @@ export const usePredictions = (
         fetchModelVersions();
     }, [selectedModel]);
 
-    // Fetch predictions when model version is selected
+    // Fetch predictions
     useEffect(() => {
         const fetchPredictions = async () => {
             if (!selectedModelVersion) return;
@@ -94,12 +106,34 @@ export const usePredictions = (
                 const response = await client.models.Prediction.list({
                     filter: { modelVersionId: { eq: selectedModelVersion.id } }
                 });
-                // Sort predictions by createdAt timestamp, most recent first
-                const sortedPredictions = response.data.sort((a: Prediction, b: Prediction) => {
+
+                const mappedPredictions: Prediction[] = response.data.map(p => ({
+                    id: p.id || '',
+                    modelVersionId: p.modelVersionId || '',
+                    projectId: p.projectId || '',
+                    type: p.type as PredictionType,
+                    status: p.status as PredictionStatus,
+                    submittedBy: p.submittedBy || '',
+                    adhocInput: p.adhocInput || undefined,
+                    inputDataPath: p.inputDataPath || undefined,
+                    adhocOutput: p.adhocOutput || undefined,
+                    outputDataPath: p.outputDataPath || undefined,
+                    inferenceLatency: p.inferenceLatency || undefined,
+                    computeResources: p.computeResources || undefined,
+                    environmentDetails: p.environmentDetails || undefined,
+                    error: p.error || undefined,
+                    startTime: p.startTime || null,
+                    endTime: p.endTime || null,
+                    createdAt: p.createdAt || null,
+                    updatedAt: p.updatedAt || null
+                }));
+
+                const sortedPredictions = mappedPredictions.sort((a, b) => {
                     const dateA = new Date(a.createdAt || 0).getTime();
                     const dateB = new Date(b.createdAt || 0).getTime();
                     return dateB - dateA;
                 });
+                
                 setPredictions(sortedPredictions);
             } catch (error) {
                 console.error('Error fetching predictions:', error);
@@ -173,12 +207,34 @@ export const usePredictions = (
             const response = await client.models.Prediction.list({
                 filter: { modelVersionId: { eq: selectedModelVersion.id } }
             });
-            // Sort predictions by createdAt timestamp, most recent first
-            const sortedPredictions = response.data.sort((a: Prediction, b: Prediction) => {
+
+            const mappedPredictions: Prediction[] = response.data.map(p => ({
+                id: p.id || '',
+                modelVersionId: p.modelVersionId || '',
+                projectId: p.projectId || '',
+                type: p.type as PredictionType,
+                status: p.status as PredictionStatus,
+                submittedBy: p.submittedBy || '',
+                adhocInput: p.adhocInput || undefined,
+                inputDataPath: p.inputDataPath || undefined,
+                adhocOutput: p.adhocOutput || undefined,
+                outputDataPath: p.outputDataPath || undefined,
+                inferenceLatency: p.inferenceLatency || undefined,
+                computeResources: p.computeResources || undefined,
+                environmentDetails: p.environmentDetails || undefined,
+                error: p.error || undefined,
+                startTime: p.startTime || null,
+                endTime: p.endTime || null,
+                createdAt: p.createdAt || null,
+                updatedAt: p.updatedAt || null
+            }));
+
+            const sortedPredictions = mappedPredictions.sort((a, b) => {
                 const dateA = new Date(a.createdAt || 0).getTime();
                 const dateB = new Date(b.createdAt || 0).getTime();
                 return dateB - dateA;
             });
+            
             setPredictions(sortedPredictions);
         } catch (error) {
             console.error('Error fetching predictions:', error);

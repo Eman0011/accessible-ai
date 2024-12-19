@@ -45,20 +45,25 @@ export const JsonOutput: React.FC<JsonOutputProps> = ({ data }) => {
     const displayValue = Array.isArray(result) ? result[0] : result;
 
     return (
-        <div className={styles.pipelineContainer}>
-            <div className={styles['step-card']}>
-                <div className={styles['step-title']}>
-                    Prediction Result
-                </div>
-                <div className={styles['result-circle']}>
-                    <div className={styles['result-value']}>
-                        {typeof displayValue === 'object' 
-                            ? JSON.stringify(displayValue, null, 2)
-                            : displayValue?.toString() || 'No result available'
-                        }
+        <SpaceBetween size="s">
+            <div className={styles.pipelineContainer}>
+                <div className={styles['step-card']}>
+                    <div className={styles['step-title']}>
+                        Prediction Result
+                    </div>
+                    <div className={styles['result-circle']}>
+                        <div className={styles['result-value']}>
+                            {typeof displayValue === 'object' 
+                                ? JSON.stringify(displayValue, null, 2)
+                                : displayValue?.toString() || 'No result available'
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+            <StatusIndicator type="success">
+                Model prediction successful!
+            </StatusIndicator>
+        </SpaceBetween>
     );
 }; 

@@ -167,10 +167,10 @@ export interface Prediction {
   error?: string;
   
   // Timestamps
-  startTime?: string;
-  endTime?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   
   // Relationships
   modelVersion?: ModelVersion;

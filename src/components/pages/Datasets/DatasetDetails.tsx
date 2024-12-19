@@ -17,8 +17,9 @@ import { Dataset, DatasetVersion } from '../../../types/models';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
 import tableStyles from '../../common/TableStyles.module.css';
 import styles from './DatasetDetails.module.css';
+import type { Schema } from '../../../../amplify/data/resource';
 
-const client = generateClient();
+const client = generateClient<Schema>();
 
 const DatasetDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -33,12 +34,12 @@ const DatasetDetails: React.FC = () => {
         
         try {
             setLoading(true);
-            const { data: fetchedDataset } = await client.models.Dataset.get({ id }) as { data: Dataset };
+            const { data: fetchedDataset } = await client.models.Dataset.get({ id });
             const { data: fetchedVersions } = await client.models.DatasetVersion.list({
                 filter: { datasetId: { eq: id } }
-            }) as { data: DatasetVersion[] };
+            });
 
-            const sortedVersions: DatasetVersion[] = (fetchedVersions || []).map((v: DatasetVersion) => ({
+            const sortedVersions: DatasetVersion[] = (fetchedVersions || []).map((v) => ({
                 id: v.id || '',
                 datasetId: v.datasetId || '',
                 version: v.version || 1,
@@ -48,7 +49,7 @@ const DatasetDetails: React.FC = () => {
                 uploadDate: v.uploadDate || new Date().toISOString(),
                 createdAt: v.createdAt || null,
                 updatedAt: v.updatedAt || null
-            })).sort((a: DatasetVersion, b: DatasetVersion) => b.version - a.version);
+            })).sort((a, b) => b.version - a.version);
 
             const dataset: Dataset = {
                 id: fetchedDataset?.id || '',
