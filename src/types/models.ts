@@ -176,3 +176,42 @@ export interface Prediction {
   modelVersion?: ModelVersion;
   project?: Project;
 }
+
+export interface PipelineStep {
+    step_name: string; // Name of the step
+    class_name: string; // Class name of the step
+    module: string; // Module from which the step is imported
+    params: { [key: string]: any }; // Parameters for the step
+}
+
+export interface PipelineStepIcon {
+  step_name: string;
+  class_name: string;
+  module: string;
+  params: Record<string, any>;
+}
+
+export interface ModelMetrics {
+  accuracy: number;
+  confusion_matrix: {
+    true_negatives: number;
+    false_positives: number;
+    false_negatives: number;
+    true_positives: number;
+  };
+  classification_report: {
+    [key: string]: {
+      precision: number;
+      recall: number;
+      'f1-score': number;
+      support: number;
+    };
+  };
+  roc_auc: number;
+  cv_score: number;
+  auc_data: {
+    fpr: number[];
+    tpr: number[];
+  };
+  total_pipelines?: number;
+}

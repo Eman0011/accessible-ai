@@ -1,4 +1,5 @@
-import { getCurrentUser } from 'aws-amplify/auth';
+import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
+import { AwsCredentialIdentity } from '@aws-sdk/types';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserInfo, UserRole } from '../types/models';
 
@@ -16,6 +17,7 @@ interface User {
 interface UserContextType {
   user: User | null;
   userInfo: UserInfo | null;
+  credentials: AwsCredentialIdentity | null;
   setUserInfo: (userInfo: UserInfo | null) => void;
   isLoading: boolean;
   error: Error | null;
@@ -24,6 +26,7 @@ interface UserContextType {
 const UserContext = createContext<UserContextType>({
   user: null,
   userInfo: null,
+  credentials: null,
   setUserInfo: () => {},
   isLoading: true,
   error: null
@@ -32,6 +35,7 @@ const UserContext = createContext<UserContextType>({
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [credentials, setCredentials] = useState<AwsCredentialIdentity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -75,9 +79,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const { credentials } = await fetchAuthSession();
+        setCredentials(credentials || null);
+      } catch (error) {
+        console.error('Error loading user session:', error);
+      }
+    };
+    loadUser();
+  }, []);
+
   const value = {
     user,
     userInfo,
+    credentials,
     setUserInfo,
     isLoading,
     error

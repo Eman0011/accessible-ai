@@ -1,12 +1,8 @@
 import { IconProps } from '@cloudscape-design/components/icon';
-type IconName = IconProps['name'];
+import { PipelineStepIcon } from '../types/models';
 
-export interface PipelineStepIcon {
-  step_name: string;
-  class_name: string;
-  module: string;
-  params: Record<string, any>;
-}
+
+type IconName = IconProps['name'];
 
 export class PipelineIconUtils {
   /**

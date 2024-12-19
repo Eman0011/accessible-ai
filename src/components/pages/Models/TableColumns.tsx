@@ -7,12 +7,14 @@ export const PredictionTableColumns: TableProps.ColumnDefinition<Prediction>[] =
         id: 'timestamp',
         header: 'Timestamp',
         cell: item => new Date(item.createdAt || '').toLocaleString(),
-        sortingField: 'createdAt'
+        sortingField: 'createdAt',
+        minWidth: 150
     },
     {
         id: 'type',
         header: 'Type',
-        cell: item => item.type
+        cell: item => item.type,
+        minWidth: 100
     },
     {
         id: 'status',
@@ -26,7 +28,8 @@ export const PredictionTableColumns: TableProps.ColumnDefinition<Prediction>[] =
             }>
                 {item.status}
             </StatusIndicator>
-        )
+        ),
+        minWidth: 100
     },
     {
         id: 'result',

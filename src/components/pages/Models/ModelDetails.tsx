@@ -30,7 +30,7 @@ import { Line } from 'react-chartjs-2';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
 import TopPipelineIcon from '../../../assets/aai_icons/pipeline_steps/TopPipeline.webp';
-import { Model, ModelStatus, ModelVersion } from '../../../types/models';
+import { Model, ModelStatus, ModelVersion, PipelineStep, ModelMetrics } from '../../../types/models';
 import ModelPipelineVisualizer from '../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
 import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import { VersionSelector } from './components/VersionSelector';
@@ -48,32 +48,6 @@ ChartJS.register(
 );
 
 const client = generateClient<Schema>();
-
-// Add these interfaces at the top of the file
-interface ModelMetrics {
-  accuracy: number;
-  confusion_matrix: {
-    true_negatives: number;
-    false_positives: number;
-    false_negatives: number;
-    true_positives: number;
-  };
-  classification_report: {
-    [key: string]: {
-      precision: number;
-      recall: number;
-      f1_score: number;
-      support: number;
-    };
-  };
-  roc_auc: number;
-  cv_score: number;
-  auc_data: {
-    fpr: number[];
-    tpr: number[];
-  };
-  total_pipelines?: number;
-}
 
 // Move getStatusColor before VersionCard
 const getStatusColor = (status: string) => {
@@ -96,7 +70,7 @@ const ModelDetails: React.FC = () => {
   const navigate = useNavigate();
   const [model, setModel] = useState<Model | null>(null);
   const [versions, setVersions] = useState<ModelVersion[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<ModelVersion | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
   const [modelOutputData, setModelOutputData] = useState<any>(null);
@@ -157,7 +131,7 @@ const ModelDetails: React.FC = () => {
         setVersions(versionData);
         
         if (versionData.length > 0) {
-          setSelectedVersion(versionData[0].id);
+          setSelectedVersion(versionData[0]);
         }
       } catch (error) {
         console.error('Error fetching model details:', error);
@@ -226,8 +200,7 @@ const ModelDetails: React.FC = () => {
   };
 
   useEffect(() => {
-    const selectedModelVersion = versions.find(v => v.id === selectedVersion);
-    if (selectedModelVersion?.status === 'TRAINING_COMPLETED' && selectedVersion) {
+    if (selectedVersion && selectedVersion?.status === "TRAINING_COMPLETED") {
       setMetrics(null);
       setPipeline([]);
       setModelOutputData(null);
@@ -235,7 +208,7 @@ const ModelDetails: React.FC = () => {
       // Wrap in async IIFE
       (async () => {
         try {
-          await fetchModelOutputData(selectedModelVersion);
+          await fetchModelOutputData(selectedVersion);
         } catch (error) {
           console.error('Error fetching model output data:', error);
         }
@@ -348,7 +321,7 @@ const ModelDetails: React.FC = () => {
                           )
                         },
                         { 
-                          id: 'f1_score', 
+                          id: 'f1-score', 
                           header: 'F1 Score', 
                           cell: (item) => (
                             <div style={{ 
@@ -494,7 +467,7 @@ const ModelDetails: React.FC = () => {
 
   const handleVersionSelect = async (version: ModelVersion | null) => {
     if (version) {
-      setSelectedVersion(version.id);
+      setSelectedVersion(version);
     }
   };
 
@@ -526,11 +499,14 @@ const ModelDetails: React.FC = () => {
   useEffect(() => {
     const fetchDatasetDetails = async () => {
       if (selectedVersion) {
-        const version = versions.find(v => v.id === selectedVersion);
-        if (version?.datasetVersionId) {
-          const details = await getDatasetDetails(version.datasetVersionId);
+        if (selectedVersion?.datasetVersionId) {
+          const details = await getDatasetDetails(selectedVersion.datasetVersionId);
           if (details) {
-            setDatasetVersionDetails(details);
+            setDatasetVersionDetails({
+              datasetId: details.datasetId,
+              version: details.version,
+              datasetName: details.datasetName || 'Unknown Dataset'
+            });
           }
         }
       }
@@ -557,7 +533,7 @@ const ModelDetails: React.FC = () => {
             <Button
               onClick={handleRunPredictions}
               variant="primary"
-              disabled={!selectedVersion || versions.find(v => v.id === selectedVersion)?.status !== 'TRAINING_COMPLETED'}
+              disabled={!selectedVersion || selectedVersion?.status !== 'TRAINING_COMPLETED'}
             >
               Run Predictions
             </Button>
@@ -607,7 +583,7 @@ const ModelDetails: React.FC = () => {
             <div className={styles.versionSelector}>
               <VersionSelector
                 modelVersions={versions || []}
-                selectedVersion={versions.find(v => v.id === selectedVersion) || null}
+                selectedVersion={selectedVersion}
                 onVersionSelect={handleVersionSelect}
               />
             </div>
@@ -625,17 +601,23 @@ const ModelDetails: React.FC = () => {
                         <ColumnLayout columns={3} variant="text-grid">
                           <div>
                             <Box variant="awsui-key-label">Status</Box>
-                            <StatusIndicator type={getStatusColor(versions.find(v => v.id === selectedVersion)?.status || 'DRAFT')}>
-                              {versions.find(v => v.id === selectedVersion)?.status || 'DRAFT'}
+                            <StatusIndicator type={getStatusColor(selectedVersion?.status)}>
+                              {selectedVersion?.status || 'DRAFT'}
                             </StatusIndicator>
                           </div>
                           <div>
                             <Box variant="awsui-key-label">Target Feature</Box>
-                            <div>{versions.find(v => v.id === selectedVersion)?.targetFeature || '-'}</div>
+                            <div>{selectedVersion?.targetFeature || '-'}</div>
                           </div>
                           <div>
+                            <Box variant="awsui-key-label">Version ID</Box>
+                            <div>{selectedVersion?.id || '-'}</div>
+                          </div>
+                        </ColumnLayout>
+                        <ColumnLayout columns={3} variant="text-grid">
+                          <div>
                             <Box variant="awsui-key-label">Dataset Version</Box>
-                            {versions.find(v => v.id === selectedVersion)?.datasetVersionId ? (
+                            {selectedVersion?.datasetVersionId ? (
                               <Link
                                 onFollow={(e) => {
                                   e.preventDefault();
@@ -651,19 +633,13 @@ const ModelDetails: React.FC = () => {
                               </Link>
                             ) : '-'}
                           </div>
-                        </ColumnLayout>
-                        <ColumnLayout columns={3} variant="text-grid">
                           <div>
                             <Box variant="awsui-key-label">Created</Box>
-                            <div>{new Date(versions.find(v => v.id === selectedVersion)?.createdAt || '').toLocaleString()}</div>
+                            <div>{new Date(selectedVersion?.createdAt || '').toLocaleString()}</div>
                           </div>
                           <div>
                             <Box variant="awsui-key-label">Last Updated</Box>
-                            <div>{new Date(versions.find(v => v.id === selectedVersion)?.updatedAt || '').toLocaleString()}</div>
-                          </div>
-                          <div>
-                            <Box variant="awsui-key-label">Training Job</Box>
-                            <div>{versions.find(v => v.id === selectedVersion)?.trainingJobId || '-'}</div>
+                            <div>{new Date(selectedVersion?.updatedAt || '').toLocaleString()}</div>
                           </div>
                         </ColumnLayout>
                       </SpaceBetween>
@@ -688,12 +664,12 @@ const ModelDetails: React.FC = () => {
               <div className={styles.mainContentGrid}>
                 {/* Left column - Pipeline */}
                 <div className={styles.leftColumn}>
-                  {selectedVersion && versions.find(v => v.id === selectedVersion)?.status === 'TRAINING_COMPLETED' && (
+                  {selectedVersion && selectedVersion?.status === "TRAINING_COMPLETED" && (
                     <Container>
                       <SpaceBetween size="l">
                         <div className={styles.pipelineVisualizerContainer}>
                           <ModelPipelineVisualizer 
-                            modelVersion={versions.find(v => v.id === selectedVersion)!}
+                            modelVersion={selectedVersion}
                           />
                           {!showingAlternativePipeline && (
                             <div className={styles.topPipelineBadge}>
@@ -773,8 +749,8 @@ const ModelDetails: React.FC = () => {
 
                 {/* Right column - Metrics */}
                 <div className={styles.rightColumn}>
-                  {selectedVersion && versions.find(v => v.id === selectedVersion)?.status === 'TRAINING_COMPLETED' && (
-                    renderPerformanceSection(versions.find(v => v.id === selectedVersion)!)
+                  {selectedVersion && selectedVersion?.status === 'TRAINING_COMPLETED' && (
+                    renderPerformanceSection(selectedVersion)
                   )}
                 </div>
               </div>

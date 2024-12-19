@@ -13,13 +13,16 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
     hasOutputPath: !!event.arguments.outputDataPath
   });
 
+  const { predictionId } = event.arguments;
+
   try {
     const { basePath, modelVersionId, targetFeature, submittedBy, input, inputDataPath, outputDataPath } = event.arguments;
     
     // Validate required fields
-    if (!basePath || !modelVersionId || !targetFeature || !submittedBy) {
+    if (!basePath || !predictionId || !modelVersionId || !targetFeature || !submittedBy) {
       console.error('Missing required fields:', {
         hasBasePath: !!basePath,
+        hasPredictionId: !!predictionId,
         hasModelVersionId: !!modelVersionId,
         hasTargetFeature: !!targetFeature,
         hasSubmittedBy: !!submittedBy
@@ -32,7 +35,6 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
       console.error('Neither input nor inputDataPath provided');
       throw new Error('Either input or inputDataPath must be provided');
     }
-
     console.debug('Processing paths:', {
       basePath,
       inputDataPath,
@@ -40,18 +42,17 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
       type: input ? 'ADHOC' : 'BATCH'
     });
 
-    // Input should already be an object since we're using a.json()
     const payload = {
       submittedBy,
+      predictionId,
       modelVersionId,
       targetFeature,
       basePath,
       input,
       inputDataPath,
-      outputDataPath
+      outputDataPath,
+      isDev: true,
     };
-
-    console.debug('Inference request received:', event);
 
     const lambdaResponse = await lambda.invoke({
       FunctionName: LAMBDA_INFERENCE_FUNCTION,
@@ -59,16 +60,11 @@ export const handler: Schema["runModelInference"]["functionHandler"] = async (ev
       Payload: JSON.stringify(payload)
     }).promise();
 
-    console.debug('Model loaded successfully');
-
-    console.debug('Inference completed:', lambdaResponse);
-
     if (lambdaResponse.FunctionError) {
       throw new Error(`Lambda execution failed: ${lambdaResponse.FunctionError}`);
     }
 
     return JSON.parse(lambdaResponse.Payload as string);
-
   } catch (error) {
     console.error('Error during inference:', {
       error,

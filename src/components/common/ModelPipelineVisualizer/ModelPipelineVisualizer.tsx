@@ -1,19 +1,12 @@
 import { Alert, Box, Container, ExpandableSection, Header, Icon } from '@cloudscape-design/components';
 import React, { useEffect, useState } from 'react';
-import { ModelVersion } from '../../../types/models';
+import { ModelVersion, PipelineStep } from '../../../types/models';
 import { getPipelineStepIcon, hasCustomIcon } from '../../../utils/PipelineIconUtils';
 import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import styles from './ModelPipelineVisualizer.module.css';
 
 interface ModelPipelineVisualizerProps {
     modelVersion: ModelVersion;
-}
-
-interface PipelineStep {
-    step_name: string;
-    class_name: string;
-    module: string;
-    params: { [key: string]: any };
 }
 
 const ModelPipelineVisualizer: React.FC<ModelPipelineVisualizerProps> = ({ 

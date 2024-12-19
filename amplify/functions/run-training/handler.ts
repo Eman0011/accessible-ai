@@ -10,8 +10,6 @@ export const handler: Schema["runTrainingJob"]["functionHandler"] = async (event
 
   console.log("Submitting Training Job:")
   const batch = new Batch();
-  const stage = process.env.NODE_ENV === 'development' ? 'dev' : 'prod';
-  console.log('STAGE:', stage);
   
   const params = {
     jobName: `training-job-${submittedBy}-${Date.now()}`,

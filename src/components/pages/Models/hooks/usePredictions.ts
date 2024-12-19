@@ -1,5 +1,7 @@
 import { generateClient } from 'aws-amplify/api';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import amplify_config from '../../../../../amplify_outputs.json';
+import { ProjectContext } from '../../../../contexts/ProjectContext';
 import { useUser } from '../../../../contexts/UserContext';
 import { Model, ModelVersion, Prediction } from '../../../../types/models';
 import { generateStoragePath } from '../../../../utils/storageUtils';
@@ -27,6 +29,7 @@ export const usePredictions = (
     initialVersionId?: string
 ) => {
     const { userInfo } = useUser();
+    const { currentProject } = useContext(ProjectContext);
     const [models, setModels] = useState<Model[]>([]);
     const [selectedModel, setSelectedModel] = useState<Model | null>(null);
     const [modelVersions, setModelVersions] = useState<ModelVersion[]>([]);
@@ -40,14 +43,17 @@ export const usePredictions = (
     const [featureInputs, setFeatureInputs] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [uploadBasePath, setUploadBasePath] = useState('');
+    const [fullInputPath, setFullInputPath] = useState<string>('');
     const PAGE_SIZE = 10;
 
     // Fetch models
     useEffect(() => {
         const fetchModels = async () => {
+            if (!currentProject?.id) return;
+
             try {
                 const response = await client.models.Model.list({
-                    filter: {}
+                    filter: { projectId: { eq: currentProject.id } }
                 });
                 setModels(response.data);
             } catch (error) {
@@ -55,7 +61,7 @@ export const usePredictions = (
             }
         };
         fetchModels();
-    }, []);
+    }, [currentProject?.id]);
 
     // Fetch model versions when model is selected
     useEffect(() => {
@@ -65,7 +71,7 @@ export const usePredictions = (
                 const response = await client.models.ModelVersion.list({
                     filter: { modelId: { eq: selectedModel.id } }
                 });
-                const sortedVersions = response.data.sort((a, b) => b.version - a.version);
+                const sortedVersions = response.data.sort((a: ModelVersion, b: ModelVersion) => b.version - a.version);
                 setModelVersions(sortedVersions);
                 
                 // Auto-select the latest version
@@ -88,7 +94,13 @@ export const usePredictions = (
                 const response = await client.models.Prediction.list({
                     filter: { modelVersionId: { eq: selectedModelVersion.id } }
                 });
-                setPredictions(response.data);
+                // Sort predictions by createdAt timestamp, most recent first
+                const sortedPredictions = response.data.sort((a: Prediction, b: Prediction) => {
+                    const dateA = new Date(a.createdAt || 0).getTime();
+                    const dateB = new Date(b.createdAt || 0).getTime();
+                    return dateB - dateA;
+                });
+                setPredictions(sortedPredictions);
             } catch (error) {
                 console.error('Error fetching predictions:', error);
             } finally {
@@ -116,8 +128,7 @@ export const usePredictions = (
             const basePath = generateStoragePath({
                 userId: userInfo.userId,
                 projectId: selectedModel.projectId,
-                predictionId: crypto.randomUUID(),
-                type: 'input'
+                predictionId: crypto.randomUUID()
             });
             console.debug('Generated upload base path:', {
                 userId: userInfo.userId,
@@ -125,7 +136,7 @@ export const usePredictions = (
                 basePath,
                 userInfo
             });
-            setUploadBasePath(basePath);
+            setUploadBasePath(basePath + "/");
         }
     }, [selectedModelVersion, selectedModel, userInfo]);
 
@@ -162,7 +173,13 @@ export const usePredictions = (
             const response = await client.models.Prediction.list({
                 filter: { modelVersionId: { eq: selectedModelVersion.id } }
             });
-            setPredictions(response.data);
+            // Sort predictions by createdAt timestamp, most recent first
+            const sortedPredictions = response.data.sort((a: Prediction, b: Prediction) => {
+                const dateA = new Date(a.createdAt || 0).getTime();
+                const dateB = new Date(b.createdAt || 0).getTime();
+                return dateB - dateA;
+            });
+            setPredictions(sortedPredictions);
         } catch (error) {
             console.error('Error fetching predictions:', error);
         } finally {
@@ -194,6 +211,20 @@ export const usePredictions = (
         }
     }, [initialVersionId, modelVersions]);
 
+    const handleFileProcessed = (file: File | null) => {
+        if (!file) return;
+
+        // Construct the full S3 path with the actual filename
+        const fullS3Path = `s3://${amplify_config.storage.bucket_name}/${uploadBasePath}${file.name}`;
+        setFullInputPath(fullS3Path);
+        
+        console.debug('File processed, setting full input path:', {
+            uploadBasePath,
+            fileName: file.name,
+            fullS3Path
+        });
+    };
+
     return {
         models,
         selectedModel,
@@ -218,6 +249,8 @@ export const usePredictions = (
         },
         loading,
         uploadBasePath,
+        handleFileProcessed,
+        fullInputPath,
         refreshPredictions
     };
 }; 

@@ -256,6 +256,7 @@ const schema = a.schema({
   runModelInference: a
     .query()
     .arguments({
+      predictionId: a.string().required(),
       modelVersionId: a.string().required(),
       targetFeature: a.string().required(),
       basePath: a.string().required(),

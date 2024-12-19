@@ -1,70 +1,64 @@
-import { Box, Icon, SpaceBetween, StatusIndicator, Alert } from '@cloudscape-design/components';
+import { Box, SpaceBetween, StatusIndicator } from '@cloudscape-design/components';
 import React from 'react';
 import styles from '../Predictions.module.css';
 
 interface JsonOutputProps {
     data: any;
-    isLastStep?: boolean;
 }
 
-export const JsonOutput: React.FC<JsonOutputProps> = ({ data, isLastStep = true }) => {
-    // Parse the nested response
-    let parsedResponse;
-    try {
-        const firstParse = typeof data === 'string' ? JSON.parse(data) : data;
-        if (firstParse.data && typeof firstParse.data === 'string') {
-            parsedResponse = JSON.parse(firstParse.data);
-        } else {
-            parsedResponse = firstParse;
-        }
-    } catch (error) {
-        console.error('Error parsing response:', error);
-        parsedResponse = { statusCode: 500, body: { message: 'Error parsing response' } };
+export const JsonOutput: React.FC<JsonOutputProps> = ({ data }) => {
+    // Handle null or undefined data
+    if (!data) {
+        return (
+            <Box color="text-status-error">
+                No data available
+            </Box>
+        );
     }
 
-    const isSuccess = parsedResponse.statusCode === 200;
-    const resultValue = isSuccess 
-        ? (Array.isArray(parsedResponse.body) ? parsedResponse.body[0] : parsedResponse.body)
-        : 'X';
-    
-    const errorMessage = !isSuccess ? parsedResponse.body.message : null;
-    
+    // If data is a string, try to parse it
+    if (typeof data === 'string') {
+        try {
+            data = JSON.parse(data);
+        } catch (e) {
+            return (
+                <Box color="text-status-error">
+                    Invalid JSON data
+                </Box>
+            );
+        }
+    }
+
+    // Handle error responses
+    if (data.statusCode === 500 || data.error) {
+        return (
+            <SpaceBetween size="s">
+                <StatusIndicator type="error">
+                    {data.error?.message || data.message || 'A Server Error Occurred'}
+                </StatusIndicator>
+            </SpaceBetween>
+        );
+    }
+
+    // Handle successful responses
+    const result = data.body || data;
+    const displayValue = Array.isArray(result) ? result[0] : result;
+
     return (
-        <SpaceBetween size="m" direction="vertical" alignItems="start">
-            <div className={styles['arrow-container']}>
-                <div className={styles.arrow}>
-                    <Icon name="angle-right" size="big" />
+        <div className={styles.pipelineContainer}>
+            <div className={styles['step-card']}>
+                <div className={styles['step-title']}>
+                    Prediction Result
                 </div>
-                <div className={`${styles['step-card']} ${isLastStep ? styles['last-step'] : ''}`}>
-                    <div className={styles['step-title']}>
-                        Predicted Value
-                    </div>
-                    <div className={`${styles['result-circle']} ${!isSuccess ? styles['error-circle'] : ''}`}>
-                        <div className={styles['result-value']}>
-                            {isSuccess ? resultValue : (
-                                <Icon 
-                                    name="status-negative" 
-                                    size="big" 
-                                    variant="error"
-                                />
-                            )}
-                        </div>
-                    </div>
-                    <div className={styles['status-container']}>
-                        <StatusIndicator type={isSuccess ? "success" : "error"}>
-                            {isSuccess ? "Prediction completed" : "Prediction failed"}
-                        </StatusIndicator>
+                <div className={styles['result-circle']}>
+                    <div className={styles['result-value']}>
+                        {typeof displayValue === 'object' 
+                            ? JSON.stringify(displayValue, null, 2)
+                            : displayValue?.toString() || 'No result available'
+                        }
                     </div>
                 </div>
             </div>
-            {!isSuccess && errorMessage && (
-                <Alert
-                    type="error"
-                    header="Prediction Error"
-                >
-                    {errorMessage}
-                </Alert>
-            )}
-        </SpaceBetween>
+        </div>
     );
 }; 

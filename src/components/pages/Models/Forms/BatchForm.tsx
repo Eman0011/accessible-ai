@@ -1,18 +1,24 @@
 import { FileUploader } from '@aws-amplify/ui-react-storage';
-import { FormField, Table, Box, SpaceBetween } from '@cloudscape-design/components';
-import React, { useState } from 'react';
+import { Box, FormField, Header, SpaceBetween, Table } from '@cloudscape-design/components';
 import Papa from 'papaparse';
+import React, { useState } from 'react';
 
 interface BatchFormProps {
     uploadBasePath: string;
     onFileProcessed: (file: File | null) => void;
     isLoading: boolean;
+    onDataParsed?: (data: string[][]) => void;
+}
+
+// Define an interface for the table data
+interface TableItem {
+    [key: string]: string;
 }
 
 export const BatchForm: React.FC<BatchFormProps> = ({
     uploadBasePath,
     onFileProcessed,
-    isLoading
+    onDataParsed
 }) => {
     const [previewData, setPreviewData] = useState<{ headers: string[], rows: string[][] }>({
         headers: [],
@@ -27,8 +33,7 @@ export const BatchForm: React.FC<BatchFormProps> = ({
             fileSize: file.size,
             fileType: file.type,
             lastModified: new Date(file.lastModified).toISOString(),
-            uploadBasePath,
-            fullPath: `${uploadBasePath}/${file.name}`
+            uploadBasePath
         });
 
         setFile(file);
@@ -36,12 +41,12 @@ export const BatchForm: React.FC<BatchFormProps> = ({
         onFileProcessed(file);
         
         Papa.parse(file, {
-            preview: 5,
+            preview: 11, // Changed to 11 to show header + 10 data rows
             complete: (results) => {
                 console.debug('[BatchForm] CSV preview parsed:', {
                     totalRows: results.data.length,
                     headers: results.data[0],
-                    sampleData: results.data.slice(1, 3),
+                    sampleData: results.data.slice(1, 11),
                     errors: results.errors,
                     meta: results.meta
                 });
@@ -50,6 +55,7 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                     const headers = results.data[0] as string[];
                     const rows = results.data.slice(1) as string[][];
                     setPreviewData({ headers, rows });
+                    onDataParsed?.(results.data as string[][]);
                 }
             },
             error: (error) => {
@@ -75,7 +81,7 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                     maxFileCount={1}
                     processFile={async ({ file }) => {
                         await handleFileSelect(file);
-                        const key = `${uploadBasePath}/${file.name}`;
+                        const key = file.name;
                         console.debug('[BatchForm] FileUploader processing file:', {
                             fileName: file.name,
                             fileSize: file.size,
@@ -85,14 +91,7 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                         });
                         return { file, key };
                     }}
-                    onError={(error: unknown) => {
-                        console.error('[BatchForm] FileUploader error:', {
-                            error,
-                            timestamp: new Date().toISOString()
-                        });
-                        resetForm();
-                    }}
-                    onSuccess={() => {
+                    onUploadSuccess={() => {
                         console.debug('[BatchForm] File uploaded successfully', {
                             fileName: file?.name,
                             timestamp: new Date().toISOString()
@@ -102,27 +101,23 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                         console.debug('[BatchForm] File removed');
                         resetForm();
                     }}
-                    onClear={() => {
-                        console.debug('[BatchForm] Upload cleared');
-                        resetForm();
-                    }}
                 />
             </FormField>
 
             {isFileSelected && file && previewData.headers.length > 0 && (
-                <div>
-                    <Box variant="awsui-key-label">Data Preview</Box>
-                    <Table
+                <Box padding={{ top: 'xl' }}>
+                    <Header variant="h3">Input Data Preview</Header>
+                    <Table<TableItem>
                         columnDefinitions={previewData.headers.map(header => ({
                             id: header,
                             header: header,
-                            cell: item => item[header] || '-'
+                            cell: (item: TableItem) => item[header] || '-'
                         }))}
                         items={previewData.rows.map(row => 
                             previewData.headers.reduce((acc, header, index) => ({
                                 ...acc,
                                 [header]: row[index]
-                            }), {})
+                            }), {} as TableItem)
                         )}
                         variant="embedded"
                         stripedRows
@@ -135,7 +130,7 @@ export const BatchForm: React.FC<BatchFormProps> = ({
                             </Box>
                         }
                     />
-                </div>
+                </Box>
             )}
         </SpaceBetween>
     );

@@ -3,23 +3,21 @@ import {
   Alert,
   Button,
   FormField,
-  Header,
   Input,
-  Select,
   SpaceBetween,
   TableProps,
-  Textarea,
+  Textarea
 } from '@cloudscape-design/components';
 import { generateClient } from "aws-amplify/api";
 import Papa from 'papaparse';
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { Schema } from '../../../amplify/data/resource';
 import { useUser } from '../../contexts/UserContext';
 import { Dataset } from '../../types/models';
 import { generateStoragePath, validateUserAccess } from '../../utils/storageUtils';
 import DatasetVisualizer from './DatasetVisualizer';
-import { useNavigate } from 'react-router-dom';
 
 const client = generateClient<Schema>();
 
@@ -183,8 +181,12 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
         if (existingDatasets && existingDatasets.length > 0) {
           const existingDataset = existingDatasets[0];
           console.debug('Found existing dataset:', existingDataset);
-          setDatasetId(existingDataset.id);
-          await fetchExistingVersions(existingDataset.id);
+          if (existingDataset.id) {
+            setDatasetId(existingDataset.id);
+            await fetchExistingVersions(existingDataset.id);
+          } else {
+            setError('Existing dataset ID is null');
+          }
         } else {
           // Reset to version 1 if no existing dataset found
           setNewVersion(1);
@@ -306,15 +308,17 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
       
       if (!dataset) {
         throw new Error('Failed to get or create dataset');
-      }
-
-      const newVersionResponse = await createDatasetVersion(dataset.id);
-      
-      if (newVersionResponse) {
-        const { data: updatedDataset } = await client.models.Dataset.get({ id: dataset.id });
-        onDatasetCreated(updatedDataset as unknown as Dataset);
-        resetForm();
-        navigate(`/datasets/${dataset.id}`);
+      } else if (dataset.id) {
+        const newVersionResponse = await createDatasetVersion(dataset.id);
+        
+        if (newVersionResponse) {
+          const { data: updatedDataset } = await client.models.Dataset.get({ id: dataset.id });
+          onDatasetCreated(updatedDataset as unknown as Dataset);
+          resetForm();
+          navigate(`/datasets/${dataset.id}`);
+        }
+      } else {
+        setError('Dataset ID is null');
       }
     } catch (error) {
       console.error('Error in dataset creation process:', error);
@@ -341,8 +345,7 @@ const DatasetUploader: React.FC<DatasetUploaderProps> = ({ onDatasetCreated, pro
       const basePath = generateStoragePath({
         userId: userInfo.userId,
         projectId,
-        resourceType: 'datasets',
-        resourceId: datasetId,
+        datasetId: datasetId,
         version: currentVersion + 1
       });
       

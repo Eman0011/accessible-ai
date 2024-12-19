@@ -4,15 +4,15 @@ import Papa from 'papaparse';
 import React, { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
-import { TRAINING_OUTPUT_BUCKET } from '../../../../Config';
 import amplify_config from '../../../../amplify_outputs.json';
+import { TRAINING_OUTPUT_BUCKET } from '../../../../Config';
 import { ProjectContext } from '../../../contexts/ProjectContext';
 import { useUser } from '../../../contexts/UserContext';
 import { Dataset, DatasetVersion, Model, TrainingJobResult } from '../../../types/models';
+import { getCSVFromCache, setCSVInCache } from '../../../utils/CacheUtils';
 import { generateStoragePath } from '../../../utils/storageUtils';
 import DatasetUploader from '../../common/DatasetUploader';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
-import { getCSVFromCache, setCSVInCache } from '../../../utils/CacheUtils';
 
 import {
   Button,
@@ -37,8 +37,8 @@ const CreateModel: React.FC = () => {
   const location = useLocation();
 
   const [modelName, setModelName] = useState('');
-  const [existingModels, setExistingModels] = useState<Model[]>([]); // Store existing models
-  const [selectedModelId, setSelectedModelId] = useState<string | null>(null); // Store selected model ID
+  const [existingModels, setExistingModels] = useState<Model[]>([]); 
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState(1)
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [uniqueDatasetNames, setUniqueDatasetNames] = useState<string[]>([]);
@@ -51,9 +51,9 @@ const CreateModel: React.FC = () => {
   const [columns, setColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [isCreatingNewModel, setIsCreatingNewModel] = useState(false); // State for new model creation modal
-  const [newModelName, setNewModelName] = useState(''); // State for new model name
-  const [newModelDescription, setNewModelDescription] = useState(''); // State for new model description
+  const [isCreatingNewModel, setIsCreatingNewModel] = useState(false); 
+  const [newModelName, setNewModelName] = useState(''); 
+  const [newModelDescription, setNewModelDescription] = useState('');
   const [datasetVersions, setDatasetVersions] = useState<DatasetVersion[]>([]);
   const [selectedDatasetVersions, setSelectedDatasetVersions] = useState<DatasetVersion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -355,8 +355,7 @@ const CreateModel: React.FC = () => {
       const s3OutputPathKey = generateStoragePath({
         userId: userInfo.userId,
         projectId: currentProject?.id || '',
-        resourceType: 'models',
-        resourceId: modelId,
+        modelId: modelId,
         version: newVersion
       });
 
@@ -640,7 +639,7 @@ const CreateModel: React.FC = () => {
                                     v.datasetId === selectedDataset.id && 
                                     v.version === selectedDatasetVersion
                                 )}
-                                highlightedColumn={selectedColumn}
+                                highlightedColumn={selectedColumn || undefined}
                             />
                         )}
                     </div>

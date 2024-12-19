@@ -1,12 +1,12 @@
-import { Container, SpaceBetween, Toggle, Box, Header, Spinner, Tabs, FormField, Textarea, SegmentedControl, Button, Table } from '@cloudscape-design/components';
-import React, { useState, useEffect, useRef } from 'react';
+import { Box, Button, Container, FormField, Header, SegmentedControl, SpaceBetween, Spinner, StatusIndicator, Textarea } from '@cloudscape-design/components';
+import React, { useEffect, useRef, useState } from 'react';
 import { Model, ModelVersion } from '../../../../types/models';
+import ModelPipelineVisualizer from '../../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
+import { BatchResultsTable } from '../components/BatchResultsTable';
+import { JsonOutput } from '../components/JsonOutput';
 import { AdhocForm } from '../Forms/AdhocForm';
 import { BatchForm } from '../Forms/BatchForm';
-import ModelPipelineVisualizer from '../../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
-import { JsonOutput } from '../components/JsonOutput';
 import styles from '../Predictions.module.css';
-import tableStyles from '../../../common/TableStyles.module.css';
 
 interface MakePredictionTabProps {
     selectedModel: Model | null;
@@ -19,16 +19,17 @@ interface MakePredictionTabProps {
     isLoading: boolean;
     onSubmit: () => void;
     uploadBasePath?: string;
-    onFileProcessed?: (file: File) => void;
+    onFileProcessed?: (file: File | null) => void;
     results?: any;
     adhocInputMode: 'form' | 'json';
     setAdhocInputMode: (mode: 'form' | 'json') => void;
     jsonInput: string;
     setJsonInput: (input: string) => void;
+    batchResults: any[];
+    outputPath: string;
 }
 
 export const MakePredictionTab: React.FC<MakePredictionTabProps> = ({
-    selectedModel,
     selectedModelVersion,
     isAdhoc,
     setIsAdhoc,
@@ -43,11 +44,14 @@ export const MakePredictionTab: React.FC<MakePredictionTabProps> = ({
     adhocInputMode,
     setAdhocInputMode,
     jsonInput,
-    setJsonInput
+    setJsonInput,
+    batchResults,
+    outputPath
 }) => {
     const [jsonError, setJsonError] = useState<string | null>(null);
     const rightColumnRef = useRef<HTMLDivElement>(null);
     const leftColumnRef = useRef<HTMLDivElement>(null);
+    const [batchSubmitted, setBatchSubmitted] = useState<boolean>(false);
 
     // Validate and parse JSON, update form inputs if valid
     const validateAndParseJSON = (jsonString: string): Record<string, any> | null => {
@@ -71,7 +75,6 @@ export const MakePredictionTab: React.FC<MakePredictionTabProps> = ({
 
     // Update JSON when form inputs change
     useEffect(() => {
-        // Convert form values to appropriate types (number or string)
         const typedInputs = Object.entries(featureInputs).reduce((acc, [key, value]) => ({
             ...acc,
             [key]: isNaN(Number(value)) || value === '' ? value : Number(value)
@@ -82,6 +85,9 @@ export const MakePredictionTab: React.FC<MakePredictionTabProps> = ({
 
     const handleSubmit = () => {
         onSubmit();
+        if (!isAdhoc) {
+            setBatchSubmitted(true);
+        }
         
         // Always scroll right column into view
         setTimeout(() => {
@@ -92,6 +98,25 @@ export const MakePredictionTab: React.FC<MakePredictionTabProps> = ({
                 });
             }
         }, 100);
+    };
+
+    const handleDownload = async () => {
+        if (!outputPath) return;
+
+        try {
+            const response = await fetch(outputPath);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'predictions.csv'; // Adjust the filename as needed
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+        }
     };
 
     return (
@@ -244,16 +269,26 @@ export const MakePredictionTab: React.FC<MakePredictionTabProps> = ({
                                     </Box>
                                 </SpaceBetween>
                             </Box>
-                        ) : results ? (
-                            <JsonOutput data={results} />
+                        ) : isAdhoc ? (
+                            results ? (
+                                <JsonOutput data={results} />
+                            ) : (
+                                <Box textAlign="left" color="text-body-secondary" padding="l">
+                                    Run a prediction to see the model output!
+                                </Box>
+                            )
                         ) : (
-                            <Box 
-                                textAlign="left"
-                                color="text-body-secondary" 
-                                padding="l"
-                            >
-                                No results yet. Run a prediction to see the output.
-                            </Box>
+                            batchSubmitted ? (
+                                <BatchResultsTable 
+                                    results={batchResults}
+                                    targetFeature={selectedModelVersion?.targetFeature || ''}
+                                    outputPath={results?.outputPath || ''}
+                                />
+                            ) : (
+                                <Box textAlign="left" color="text-body-secondary" padding="l">
+                                    Please submit a batch prediction to see the results.
+                                </Box>
+                            )
                         )}
                     </Container>
                 </SpaceBetween>
