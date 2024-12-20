@@ -1,46 +1,25 @@
-import { Authenticator } from '@aws-amplify/ui-react';
-import { AppLayout, SideNavigation, SideNavigationProps, SpaceBetween, Spinner, TopNavigation } from '@cloudscape-design/components';
-import { generateClient } from "aws-amplify/api";
-import React, { useCallback, useEffect, useState } from 'react';
-import { Route, BrowserRouter as Router, Routes, useNavigate } from 'react-router-dom';
-import type { Schema } from "../amplify/data/resource";
-import CreateProjectModal from './components/common/CreateProjectModal';
-import { ProjectContext } from './contexts/ProjectContext';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { useUser } from './contexts/UserContext';
-import { Project } from './types/models';
 
+import '@aws-amplify/ui-react/styles.css';
+import './assets/css/theme.css';
 import brainLogo from './assets/images/cts-brain-logo.png';
 import Footer from "./components/Footer";
 
-// import "./assets/css/default.css";
-// import "./assets/css/styles.css";
-// import "./assets/plugins/bootstrap/css/bootstrap.min.css";
-// import "./assets/plugins/font-awesome/css/font-awesome.css";
-
-// import 'primeicons/primeicons.css';
-// import 'primereact/resources/primereact.min.css';
-// import 'primereact/resources/themes/saga-blue/theme.css';
-
-import AnimatedAssistant from './components/common/eda/AnimatedAssistant';
-import LandingPage from './components/pages/LandingPage';
-
-import '@aws-amplify/ui-react/styles.css';
-import CreateModel from './components/pages/Models/CreateModel';
-import ModelDetails from './components/pages/Models/ModelDetails';
-import ModelsHome from './components/pages/Models/ModelsHome';
-
-import './assets/css/theme.css';
-
-import { Alert } from '@cloudscape-design/components';
-import { AuthUser } from 'aws-amplify/auth';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
-import CreateDataset from './components/pages/Datasets/CreateDataset';
-import DatasetsHome from './components/pages/Datasets/DatasetsHome';
-import { UserProvider } from './contexts/UserContext';
+import CreateProjectModal from './components/common/CreateProjectModal';
+import AnimatedAssistant from './components/common/eda/AnimatedAssistant';
 
-import DatasetDetails from './components/pages/Datasets/DatasetDetails';
-import Predictions from './components/pages/Models/Predictions'; // Import the new Predictions component
+
+import { Authenticator } from '@aws-amplify/ui-react';
+import { Alert, AppLayout, SideNavigation, SideNavigationProps, SpaceBetween, Spinner, TopNavigation } from '@cloudscape-design/components';
+import { generateClient } from "aws-amplify/api";
+import { AuthUser } from 'aws-amplify/auth';
+import { Route, BrowserRouter as Router, Routes, useNavigate } from 'react-router-dom';
+import type { Schema } from "../amplify/data/resource";
+import { ProjectContext } from './contexts/ProjectContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { UserProvider, useUser } from './contexts/UserContext';
+import { Project } from './types/models';
 import { createUserInfo } from './utils/userUtils';
 
 const client = generateClient<Schema>();
@@ -49,6 +28,16 @@ interface AppContentProps {
   signOut?: () => void;
   user?: AuthUser;
 }
+
+// Lazy load components
+const LandingPage = React.lazy(() => import('./components/pages/LandingPage'));
+const CreateModel = React.lazy(() => import('./components/pages/Models/CreateModel'));
+const ModelDetails = React.lazy(() => import('./components/pages/Models/ModelDetails'));
+const ModelsHome = React.lazy(() => import('./components/pages/Models/ModelsHome'));
+const CreateDataset = React.lazy(() => import('./components/pages/Datasets/CreateDataset'));
+const DatasetsHome = React.lazy(() => import('./components/pages/Datasets/DatasetsHome'));
+const DatasetDetails = React.lazy(() => import('./components/pages/Datasets/DatasetDetails'));
+const Predictions = React.lazy(() => import('./components/pages/Models/Predictions'));
 
 const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
   const { setUserInfo } = useUser();
@@ -248,16 +237,17 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
                       Please select a project from the top navigation or create a new one.
                     </Alert>
                   )}
-                  <Routes>
-                    <Route path="/" element={<LandingPage />} />
-                    <Route path="/datasets" element={<DatasetsHome />} />
-                    <Route path="/datasets/create" element={<CreateDataset />} />
-                    <Route path="/models" element={<ModelsHome />} />
-                    <Route path="/models/create" element={<CreateModel />} />
-                    <Route path="/models/:modelId" element={<ModelDetails />} />
-                    <Route path="/models/predictions" element={<Predictions />} /> {/* New route */}
-                    <Route path="/datasets/:id" element={<DatasetDetails />} />
-                  </Routes>
+                  <Suspense fallback={<Spinner />}>
+                    <Routes>
+                      <Route path="/" element={<LandingPage />} />
+                      <Route path="/datasets/create" element={<CreateDataset />} />
+                      <Route path="/models" element={<ModelsHome />} />
+                      <Route path="/models/create" element={<CreateModel />} />
+                      <Route path="/models/:modelId" element={<ModelDetails />} />
+                      <Route path="/models/predictions" element={<Predictions />} />
+                      <Route path="/datasets/:id" element={<DatasetDetails />} />
+                    </Routes>
+                  </Suspense>
                 </>
               )}
             </>

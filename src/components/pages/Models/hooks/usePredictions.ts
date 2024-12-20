@@ -1,12 +1,12 @@
 import { generateClient } from 'aws-amplify/api';
 import { useContext, useEffect, useState } from 'react';
+import type { Schema } from '../../../../../amplify/data/resource';
 import amplify_config from '../../../../../amplify_outputs.json';
 import { ProjectContext } from '../../../../contexts/ProjectContext';
 import { useUser } from '../../../../contexts/UserContext';
-import { Model, ModelStatus, ModelVersion, Prediction, PredictionType, PredictionStatus } from '../../../../types/models';
+import { Model, ModelStatus, ModelVersion, Prediction, PredictionStatus, PredictionType } from '../../../../types/models';
 import { generateStoragePath } from '../../../../utils/storageUtils';
 import { getS3JSONFromBucket } from '../../../common/utils/S3Utils';
-import type { Schema } from '../../../../../amplify/data/resource';
 
 const client = generateClient<Schema>();
 

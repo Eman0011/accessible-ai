@@ -1,4 +1,4 @@
-import { Box, Container, Header, Link, SpaceBetween, Table, Tabs } from '@cloudscape-design/components';
+import { Box, Container, Header, SpaceBetween, Tabs } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -365,66 +365,6 @@ const Predictions: React.FC = () => {
                 />
             )}
         </SpaceBetween>
-    );
-};
-
-// Create a new component for displaying batch results
-const BatchResultsTable: React.FC<{
-    results: Array<{
-        index: number;
-        prediction: string;
-    }>;
-    targetFeature: string;
-    outputPath: string;
-}> = ({ results, targetFeature, outputPath }) => {
-    if (!results || results.length === 0) {
-        return (
-            <Box textAlign="center" color="inherit">
-                <b>Processing Batch Predictions</b>
-                <Box padding={{ bottom: 's' }} variant="p" color="inherit">
-                    Results will be available for download when complete.
-                </Box>
-                <Link href={outputPath}>Download Results CSV</Link>
-            </Box>
-        );
-    }
-
-    return (
-        <Table
-            columnDefinitions={[
-                {
-                    id: 'index',
-                    header: 'Row',
-                    cell: item => item.index
-                },
-                {
-                    id: 'prediction',
-                    header: `Predicted ${targetFeature}`,
-                    cell: item => item.prediction
-                },
-                {
-                    id: 'actions',
-                    header: 'Actions',
-                    cell: () => (
-                        <Link href={outputPath}>
-                            Download Full Results
-                        </Link>
-                    )
-                }
-            ]}
-            resizableColumns
-            items={results}
-            variant="embedded"
-            stripedRows
-            empty={
-                <Box textAlign="center" color="inherit">
-                    <b>No results available</b>
-                    <Box padding={{ bottom: 's' }} variant="p" color="inherit">
-                        Run a batch prediction to see results.
-                    </Box>
-                </Box>
-            }
-        />
     );
 };
 

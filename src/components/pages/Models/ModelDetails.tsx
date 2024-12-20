@@ -30,7 +30,7 @@ import { Line } from 'react-chartjs-2';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Schema } from "../../../../amplify/data/resource";
 import TopPipelineIcon from '../../../assets/aai_icons/pipeline_steps/TopPipeline.webp';
-import { Model, ModelStatus, ModelVersion, PipelineStep, ModelMetrics } from '../../../types/models';
+import { Model, ModelMetrics, ModelStatus, ModelVersion, PipelineStep } from '../../../types/models';
 import ModelPipelineVisualizer from '../../common/ModelPipelineVisualizer/ModelPipelineVisualizer';
 import { getS3JSONFromBucket } from '../../common/utils/S3Utils';
 import { VersionSelector } from './components/VersionSelector';

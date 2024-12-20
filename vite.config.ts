@@ -4,8 +4,33 @@ import { defineConfig } from 'vite'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+      },
+      output: {
+        comments: false,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'aws-vendor': ['aws-amplify', '@aws-amplify/ui-react'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'chart-vendor': ['chart.js', 'react-chartjs-2'],
+          'ui-vendor': ['@cloudscape-design/components'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
   optimizeDeps: {
-    exclude: ['aws-sdk']
+    exclude: ['aws-sdk'],
+    include: ['react', 'react-dom', 'react-router-dom'],
   },
   resolve: {
     alias: {
