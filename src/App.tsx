@@ -240,12 +240,13 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
                   <Suspense fallback={<Spinner />}>
                     <Routes>
                       <Route path="/" element={<LandingPage />} />
+                      <Route path="/datasets" element={<DatasetsHome />} />
                       <Route path="/datasets/create" element={<CreateDataset />} />
+                      <Route path="/datasets/:id" element={<DatasetDetails />} />
                       <Route path="/models" element={<ModelsHome />} />
                       <Route path="/models/create" element={<CreateModel />} />
                       <Route path="/models/:modelId" element={<ModelDetails />} />
                       <Route path="/models/predictions" element={<Predictions />} />
-                      <Route path="/datasets/:id" element={<DatasetDetails />} />
                     </Routes>
                   </Suspense>
                 </>
