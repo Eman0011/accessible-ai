@@ -6,7 +6,7 @@ import { runTrainingJob } from './functions/run-training/resource';
 import { storage } from './storage/resource';
 // import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from "aws-cdk-lib/aws-iam";
-import { BATCH_JOB_ROLE, TRAINING_OUTPUT_BUCKET, PREDICTIONS_OUTPUT_BUCKET } from '../Config';
+import { AAI_PUBLIC_BUCKET, BATCH_JOB_ROLE, PREDICTIONS_OUTPUT_BUCKET, TRAINING_OUTPUT_BUCKET } from '../Config';
 
 const backend = defineBackend({
   auth,
@@ -77,6 +77,22 @@ authenticatedRole.addToPrincipalPolicy(
     resources: [
       `arn:aws:s3:::${PREDICTIONS_OUTPUT_BUCKET}`,
       `arn:aws:s3:::${PREDICTIONS_OUTPUT_BUCKET}/*`,
+    ]
+  })
+);
+
+// Add S3 permissions for accessible-ai public bucket
+authenticatedRole.addToPrincipalPolicy(
+  new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: [
+      's3:GetObject',
+      's3:ListBucket',
+      's3:GetBucketLocation',
+    ],
+    resources: [
+      `arn:aws:s3:::${AAI_PUBLIC_BUCKET}`,
+      `arn:aws:s3:::${AAI_PUBLIC_BUCKET}/*`,
     ]
   })
 );

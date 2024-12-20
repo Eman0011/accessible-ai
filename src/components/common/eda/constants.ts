@@ -35,6 +35,18 @@ interface Asset {
     markers: any[];
   }
 
+  export const EDA_ANIMATIONS_BASE_PATH = 's3://accessible-ai/public/assets/animations/eda';
+
+  export const EDA_ANIMATION_FILES = [
+    'eda_standing.json',
+    'eda_fidgeting.json',
+    'eda_bored.json',
+    'eda_waving.json',
+    'eda_jumping.json'
+  ] as const;
+
+  export type AnimationName = typeof EDA_ANIMATION_FILES[number];
+
   export const transformAnimationData = (data: any): Animation => {
     return {
       ...data,

@@ -2,22 +2,32 @@
 import { Box, SpaceBetween, Spinner } from '@cloudscape-design/components';
 import Lottie from 'lottie-react';
 import { useEffect, useState } from 'react';
+import { getS3JSONFromBucket } from '../utils/S3Utils';
 import ChatBox from './ChatBox';
+import { Animation, EDA_ANIMATIONS_BASE_PATH, transformAnimationData } from './constants';
 
-import { Animation, transformAnimationData } from './constants';
-
-const loadAnimation = async (name: string) => {
-  const module = await import(`../../../assets/animations/eda_${name}.json`);
-  return transformAnimationData(module.default);
+const loadAnimation = async (name: string): Promise<Animation | null> => {
+  try {
+    const path = `${EDA_ANIMATIONS_BASE_PATH}/eda_${name}.json`;
+    const data = await getS3JSONFromBucket(path);
+    return transformAnimationData(data);
+  } catch (error) {
+    console.error(`Error loading animation ${name}:`, error);
+    return null;
+  }
 };
 
 const animationProbabilities = [0.5, 0.2, 0.15, 0.1, 0.05];
 
-const getRandomAnimation = (animations: Record<string, Animation>) => {
-  const animationKeys = Object.keys(animations);
+type AnimationKey = 'fidgeting' | 'standing' | 'bored' | 'waving' | 'jumping';
+
+const getRandomAnimation = (anims: Record<AnimationKey, Animation | undefined>): AnimationKey => {
+  const animationKeys = Object.keys(anims).filter(
+    (key): key is AnimationKey => anims[key as AnimationKey] !== undefined
+  );
   const rand = Math.random();
   let sum = 0;
-  for (let i = 0; i < animationProbabilities.length; i++) {
+  for (let i = 0; i < animationProbabilities.length && i < animationKeys.length; i++) {
     sum += animationProbabilities[i];
     if (rand <= sum) {
       return animationKeys[i];
@@ -27,27 +37,63 @@ const getRandomAnimation = (animations: Record<string, Animation>) => {
 };
 
 const AnimatedAssistant = () => {
-  const [animationKey, setAnimationKey] = useState('waving');
+  const [animationKey, setAnimationKey] = useState<AnimationKey>('fidgeting');
   const [isStopped, setIsStopped] = useState(false);
-  const [animations, setAnimations] = useState<Record<string, Animation>>({});
+  const [animations, setAnimations] = useState<Record<AnimationKey, Animation | undefined>>({
+    fidgeting: undefined,
+    standing: undefined,
+    bored: undefined,
+    waving: undefined,
+    jumping: undefined
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
+  const [allAnimationsLoaded, setAllAnimationsLoaded] = useState(false);
 
   useEffect(() => {
-    const loadAnimations = async () => {
-      const animationNames = ['standing', 'fidgeting', 'bored', 'waving', 'jumping'];
-      const loadedAnimations: Record<string, Animation> = {};
-      
-      for (const name of animationNames) {
-        loadedAnimations[name] = await loadAnimation(name);
+    const loadInitialAnimation = async () => {
+      const fidgetingAnimation = await loadAnimation('fidgeting');
+      if (fidgetingAnimation) {
+        setAnimations({
+          fidgeting: fidgetingAnimation,
+          standing: undefined,
+          bored: undefined,
+          waving: undefined,
+          jumping: undefined
+        });
+        setIsLoading(false);
       }
-      
-      setAnimations(loadedAnimations);
-      setIsLoading(false);
     };
-    
-    loadAnimations();
+    loadInitialAnimation();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      const loadRemainingAnimations = async () => {
+        const remainingNames: AnimationKey[] = ['standing', 'bored', 'waving', 'jumping'];
+        const newAnimations = { ...animations };
+
+        try {
+          const loadedAnimations = await Promise.all(
+            remainingNames.map(name => loadAnimation(name))
+          );
+
+          remainingNames.forEach((name, index) => {
+            if (loadedAnimations[index]) {
+              newAnimations[name] = loadedAnimations[index]!;
+            }
+          });
+
+          setAnimations(newAnimations);
+          setAllAnimationsLoaded(true);
+        } catch (error) {
+          console.error('Error loading remaining animations:', error);
+        }
+      };
+
+      loadRemainingAnimations();
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     if (!animations[animationKey]) return;
@@ -67,17 +113,20 @@ const AnimatedAssistant = () => {
       return () => clearTimeout(timeoutId);
     } else {
       const handleAnimationEnd = () => {
-        const availableAnimations = Object.keys(animations).length > 0 ? animations : null;
-        if (!availableAnimations) return;
+        if (!allAnimationsLoaded) {
+          setAnimationKey('fidgeting');
+          setIsStopped(false);
+          return;
+        }
 
-        const newAnimationKey = getRandomAnimation(availableAnimations);
+        const newAnimationKey = getRandomAnimation(animations);
         setAnimationKey(newAnimationKey);
         setIsStopped(false);
       };
 
       handleAnimationEnd();
     }
-  }, [animationKey, isStopped, animations]);
+  }, [animationKey, isStopped, animations, allAnimationsLoaded]);
 
   useEffect(() => {
     if (!isLoading && animations[animationKey]) {
@@ -89,12 +138,12 @@ const AnimatedAssistant = () => {
     }
   }, [isLoading, animations, animationKey]);
 
-  const handleAnimationChange = (key: string) => {
-    setAnimationKey(key);
-    setIsStopped(false);
-  };
+  // const handleAnimationChange = (key: AnimationKey) => {
+  //   setAnimationKey(key);
+  //   setIsStopped(false);
+  // };
 
-  if (isLoading || !animations[animationKey]) {
+  if (isLoading && !animations['fidgeting']) {
     return (
       <div className="lottie-container">
         <Box textAlign="center" padding={{ top: 'l' }}>
@@ -112,10 +161,12 @@ const AnimatedAssistant = () => {
   return (
     <SpaceBetween size='s'>
       <div className="lottie-container">
-        <Lottie
-          animationData={animations[animationKey]}
-          loop={true}
-        />
+        {animations[animationKey] && (
+          <Lottie
+            animationData={animations[animationKey]}
+            loop={true}
+          />
+        )}
       </div>
       <div style={{ padding: '10px' }}>
       </div>

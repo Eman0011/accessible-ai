@@ -1,5 +1,5 @@
+import { Box, Button, Input, SpaceBetween } from '@cloudscape-design/components';
 import React, { useState } from 'react';
-import { SpaceBetween, Input, Button, Box } from '@cloudscape-design/components';
 
 const ChatBox: React.FC = () => {
   const [message, setMessage] = useState('');
@@ -15,7 +15,7 @@ const ChatBox: React.FC = () => {
       <SpaceBetween direction="vertical" size="s">
         <div style={{ height: '200px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px' }}>
           {/* Chat messages will be displayed here */}
-          <p><strong>EDA:</strong> Hello! I'm currently disabled, but I'll be here to help you soon!</p>
+          <p><strong>EDA:</strong> Hi, I'm EDA! I'll be available to help you soon!</p>
         </div>
         <SpaceBetween direction="horizontal" size="s">
           <Input

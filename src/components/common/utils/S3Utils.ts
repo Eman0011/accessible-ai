@@ -16,10 +16,9 @@ const getS3Client = async () => {
 
 
 export const parseS3Path = (s3Path: string): { bucket: string; key: string } => {
-  const parts = s3Path.split('/');
-  const bucket = parts[0]; // Assuming the first part is the bucket name
-  const key = parts.slice(1).join('/'); // The rest is the key
-  return { bucket, key };
+  const path = s3Path.startsWith('s3://') ? s3Path.substring(5) : s3Path;
+  const parts = path.split('/');
+  return { bucket: parts[0], key: parts.slice(1).join('/') };
 };
 
 export const getS3JSONFromBucket = async <T>(s3Path: string): Promise<T> => {
