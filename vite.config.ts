@@ -1,9 +1,11 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { visualizer } from 'rollup-plugin-visualizer';
+import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    visualizer({ open: true }) // Automatically opens the report in the browser
+  ],
   build: {
     minify: 'terser',
     terserOptions: {

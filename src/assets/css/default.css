@@ -1,141 +1,47 @@
-#navbar {
-    margin-bottom: 20px;
-}
-
-header nav ul li a {
-    font-size: 22px;
-}
-
-header nav .navbar-brand {
-    font-size: 30px;
-}
-
-.sidebar-wrapper {
-    width: 300px;
-}
-
-.my-nav-link {
-    font-family: Consolas;
-}
-
-.my-nav-link:hover {
-    color: black;
-    background-color: white;
-}
-
-.main-wrapper .rotation-title {
-    color: #3F4650;
-    font-size: 14px;
-    margin-top: 0;
-    margin-bottom: 0;
-    margin-left: 10px;
-    font-weight: 500;
-}
-
-.dropdown {
-    padding: 10px;
-    font-size: 22px;
-    color: #2d7788;
-    position: relative;
-    display: inline-block;
-}
-
-.dropdown-content {
-    margin-left: -10px;
-    margin-top: 10px;
-    display: none;
-    position: absolute;
-    background-color: #f9f9f9;
-    min-width: 160px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 1;
-}
-
-.dropdown-content a {
-    color: black;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-    width: 250px;
-}
-
-.dropdown-content a:hover {background-color: #f1f1f1}
-
-.dropdown:hover .dropdown-content {
-    display: block;
-}
-
-/* CUSTOM */
-
-.centered {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.pdf-document {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-x: scroll; /* Enable horizontal scrolling */
-}
-
-.zoom-controls {
-    margin-top: 10px;
-}
-
-.zoom-controls button {
-    margin-right: 5px;
-    padding: 5px 10px;
-}
-
-body {
-    font-family: 'Roboto', sans-serif;
-    color: #333;
-}
-
-.intro {
-    font-size: 18px;
-    line-height: 1.5;
-    margin-bottom: 20px;
-}
-
-.intro .highlight {
-    font-size: 18px;
-    color: #0056b3; /* Assuming this is the logo’s blue */
-    font-weight: bold;
-}
-
-.intro a {
-    color: #008000; /* Assuming this is the logo’s green */
-    text-decoration: none;
-}
-
-.intro a:hover {
-    text-decoration: underline;
-}
-
-.jpg {
-    border: transparent
-}
-
 /* AnimatedAssistant.css */
 .lottie-container {
-    height: 300px;
-    width: 533px;
-    margin-left: -120px;
-    position: sticky;
-    top: 10px;
-    background-color: transparent; /* Ensure background is transparent */
-    border: none; /* Remove any borders */
-    overflow: hidden; /* Prevent overflow */
-  }
-  
-.lottie-animation {
-    background: transparent; /* Ensure the Lottie background is transparent */
-    border: none; /* Remove any borders */
+  height: 300px;
+  width: 533px;
+  margin-left: -120px;
+  position: sticky;
+  top: 10px;
+  background-color: transparent;
+  border: none;
+  overflow: hidden;
 }
 
-.lottie-container svg {
-    border:transparent;
+.animation-wrapper {
+  position: relative;
+  width: 533px;
+  height: 300px;
 }
+
+.eda-image {
+  width: 533px;
+  height: 300px;
+  position: absolute;
+  top: 0;
+  left: -120px;
+  object-fit: contain;
+}
+
+.eda-animation {
+  width: 533px;
+  height: 300px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: contain;
+}
+
+.animation-wrapper.loading .eda-animation,
+.animation-wrapper.loaded .eda-image {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.animation-wrapper.loading .eda-image,
+.animation-wrapper.loaded .eda-animation {
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+} 
