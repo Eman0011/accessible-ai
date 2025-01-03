@@ -1,28 +1,29 @@
 import {
-  Box,
-  Button,
-  Container,
-  FormField,
-  Header,
-  Link,
-  Select,
-  SpaceBetween,
-  Spinner,
-  Tabs
+    Box,
+    Button,
+    Container,
+    FormField,
+    Header,
+    Link,
+    Select,
+    SpaceBetween,
+    Spinner,
+    Tabs
 } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import type { Schema } from '../../../../amplify/data/resource';
 import { Dataset, DatasetVersion } from '../../../types/models';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
 import tableStyles from '../../common/TableStyles.module.css';
 import styles from './DatasetDetails.module.css';
-import type { Schema } from '../../../../amplify/data/resource';
 
 const client = generateClient<Schema>();
 
 const DatasetDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [dataset, setDataset] = useState<Dataset | null>(null);
     const [versions, setVersions] = useState<DatasetVersion[]>([]);
     const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
@@ -107,8 +108,15 @@ const DatasetDetails: React.FC = () => {
                         }
                         actions={
                             <SpaceBetween direction="horizontal" size="xs">
-                                <Button>Share</Button>
-                                <Button variant="primary">Update Dataset</Button>
+                                <Button onClick={() => navigate('/datasets/create', { state: { initialDataset: dataset } })}>Update Dataset</Button>
+                                <Button variant="primary" onClick={() => {
+                                    const currentVersionData = versions.find(v => v.id === selectedVersion);
+                                    if (currentVersionData) {
+                                        navigate('/models/create', {
+                                            state: { selectedDatasetVersion: currentVersionData }
+                                        });
+                                    }
+                                }}>Create Model Version</Button>
                             </SpaceBetween>
                         }
                     >

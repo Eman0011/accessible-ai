@@ -1,6 +1,7 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { runModelInference } from "../functions/run-inference/resource";
 import { runTrainingJob } from "../functions/run-training/resource";
+import { EDA_MODEL_NAME, EDA_MODEL_VERSION_REPORT_SYSTEM_PROMPT, EDA_SYSTEM_PROMPT } from "./constants";
 
 /*== STEP 1 ===============================================================
 The section below creates a Todo database table with a "content" field. Try
@@ -120,6 +121,7 @@ const schema = a.schema({
       s3OutputPath: a.string().required(),
       datasetVersionId: a.id().required(),
       trainingJobId: a.string(),
+      report: a.string(),
       performanceMetrics: a.json(),
       trainingConfig: a.json(),
       trainingResources: a.json(),
@@ -237,6 +239,45 @@ const schema = a.schema({
     ])
     .authorization((allow) => [allow.authenticated()]),
 
+    // Organization Entity
+  Organization: a
+  .model({
+    id: a.id(),
+    name: a.string().required(),
+    owner: a.string().required(),
+    users: a.hasMany('User', 'organizationId'),
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
+    projects: a.hasMany('Project', 'organizationId'),
+  })
+  .authorization((allow) => [allow.authenticated()]),
+
+  // User Entity
+  User: a
+    .model({
+      id: a.id(),
+      username: a.string().required(),
+      email: a.string().required(),
+      organizationId: a.string().required(),
+      organization: a.belongsTo('Organization', 'organizationId'),
+      role: a.string().required(),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.authenticated()]),
+
+  // OrganizationInvite Entity
+  OrganizationInvite: a
+    .model({
+      id: a.id(),
+      organizationId: a.string().required(),
+      email: a.string().required(),
+      status: a.string().required(),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.authenticated()]),
+
   // runTrainingJob Query
   runTrainingJob: a
     .query()
@@ -269,44 +310,60 @@ const schema = a.schema({
     .handler(a.handler.function(runModelInference))
     .authorization((allow) => [allow.authenticated()]),
 
-  // Organization Entity
-  Organization: a
-    .model({
-      id: a.id(),
-      name: a.string().required(),
-      owner: a.string().required(),
-      users: a.hasMany('User', 'organizationId'),
-      createdAt: a.datetime(),
-      updatedAt: a.datetime(),
-      projects: a.hasMany('Project', 'organizationId'),
+  // EDA Chat
+  chat: a
+    .conversation({
+      aiModel: a.ai.model(EDA_MODEL_NAME),
+      systemPrompt: EDA_SYSTEM_PROMPT,
+      tools: [
+        a.ai.dataTool({
+          name: 'listModels',
+          description: 'Get models (id, name, description, owner, projectId)',
+          model: a.ref('Model'),
+          modelOperation: 'list'
+        }),
+        a.ai.dataTool({
+          name: 'listModelVersions',
+          description: 'Get model versions (id, modelId, version, status, targetFeature, report)',
+          model: a.ref('ModelVersion'),
+          modelOperation: 'list'
+        }),
+        a.ai.dataTool({
+          name: 'listDatasets',
+          description: 'Get datasets (id, name, description, owner, projectId,)',
+          model: a.ref('Dataset'),
+          modelOperation: 'list'
+        }),
+        a.ai.dataTool({
+          name: 'listDatasetVersions',
+          description: 'Get dataset versions (id, datasetId, version, size, rowCount)',
+          model: a.ref('DatasetVersion'),
+          modelOperation: 'list'
+        })
+      ]
     })
-    .authorization((allow) => [allow.authenticated()]),
+    .authorization((allow) => allow.owner()),
 
-  // User Entity
-  User: a
-    .model({
-      id: a.id(),
-      username: a.string().required(),
-      email: a.string().required(),
-      organizationId: a.string().required(),
-      organization: a.belongsTo('Organization', 'organizationId'),
-      role: a.string().required(),
-      createdAt: a.datetime(),
-      updatedAt: a.datetime(),
+  // Generate Model Version Report
+  generateModelVersionReport: a
+    .generation({
+      aiModel: a.ai.model(EDA_MODEL_NAME),
+      systemPrompt: EDA_MODEL_VERSION_REPORT_SYSTEM_PROMPT
     })
-    .authorization((allow) => [allow.authenticated()]),
-
-  // OrganizationInvite Entity
-  OrganizationInvite: a
-    .model({
-      id: a.id(),
-      organizationId: a.string().required(),
-      email: a.string().required(),
-      status: a.string().required(),
-      createdAt: a.datetime(),
-      updatedAt: a.datetime(),
+    .arguments({
+      modelName: a.string().required(),
+      modelDescription: a.string().required(),
+      modelPipeline: a.json().required(),
+      performanceMetrics: a.json().required(),
+      featureNames: a.json().required(),
+      datasetName: a.string().required(),
+      datasetDescription: a.string().required(),
+      datasetRows: a.integer().required(),
+      datasetSize: a.integer().required(),
+      targetFeature: a.string().required()
     })
-    .authorization((allow) => [allow.authenticated()]),
+    .returns(a.json())
+    .authorization((allow) => allow.authenticated()),
 
   // Add impersonation query
   // impersonateUser: a

@@ -1,13 +1,13 @@
 import {
-  Box,
-  Button,
-  Header,
-  Link,
-  SpaceBetween,
-  Table,
-  TableProps,
-  TextFilter,
-  StatusIndicator
+    Box,
+    Button,
+    Header,
+    Link,
+    SpaceBetween,
+    StatusIndicator,
+    Table,
+    TableProps,
+    TextFilter
 } from '@cloudscape-design/components';
 import { generateClient } from 'aws-amplify/api';
 import React, { useContext, useEffect, useState } from 'react';

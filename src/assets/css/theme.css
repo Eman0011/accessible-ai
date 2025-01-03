@@ -85,6 +85,91 @@ body.dark-theme .awsui-menu-dropdown-item:hover {
 
 /* Add more theme-specific styles as needed */
 
+/* Chat input styles for dark mode */
+body.dark-theme .amplify-ai-conversation input,
+body.dark-theme .amplify-ai-conversation textarea {
+  color: #ffffff !important;
+  background-color: #2c2c2c !important;
+  caret-color: #ffffff !important;
+}
+
+body.dark-theme .amplify-ai-conversation input::placeholder,
+body.dark-theme .amplify-ai-conversation textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+body.dark-theme .amplify-ai-conversation .amplify-ai-textfield {
+  background-color: #2c2c2c !important;
+}
+
+/* Chat message sender and timestamp styles for dark mode */
+body.dark-theme .amplify-ai-conversation__message__sender__username {
+  color: #7bc2d3 !important;
+}
+
+/* Override color for user messages */
+body.dark-theme .amplify-ai-conversation__message--user .amplify-ai-conversation__message__sender__username {
+  color: #4CAF50 !important;  /* Material Design green */
+}
+
+body.dark-theme .amplify-ai-conversation__message__sender__timestamp {
+  color: #ffffff !important;
+  opacity: 0.7;
+  font-size: 0.8em;
+}
+
+/* Hide parts of the timestamp using pseudo-elements */
+body .amplify-ai-conversation__message__sender__timestamp {
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* Reverse message order in chat */
+body .amplify-ai-conversation__messages {
+  transform: scaleY(-1) !important;
+}
+
+body .amplify-ai-conversation__messages > * {
+  transform: scaleY(-1) !important;
+}
+
+/* Reorder chat layout */
+.amplify-flex.amplify-ai-conversation {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.amplify-ai-conversation__message__list {
+  display: flex !important;
+  flex-direction: column-reverse !important;
+}
+
+.amplify-ai-conversation__form {
+  order: -1 !important;
+  margin-bottom: 20px !important;
+}
+
+/* Remove previous incorrect class names */
+.amplify-ai-conversation_message_list,
+.amplify-ai-conversation_form {
+  display: unset;
+  margin: unset;
+}
+
+/* Remove transform attempts */
+body .amplify-ai-conversation__messages,
+body .amplify-ai-conversation__messages > * {
+  transform: none !important;
+}
+
+/* Remove previous reordering attempts */
+.amplify-ai-conversation__messages-container,
+.amplify-ai-conversation__input-container,
+.amplify-ai-conversation__messages,
+.amplify-ai-conversation__messages > * {
+  order: unset !important;
+}
+
 /* Add these styles at the end of the file */
 
 .app-container {
@@ -115,4 +200,18 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+}
+
+/* Navigation panel width adjustment */
+.amplify-ai-conversation__message__list {
+  display: flex !important;
+  flex-direction: column-reverse !important;
+}
+
+.awsui_navigation_14iqq_1x0lx_97 {
+  width: 150px !important;  /* Reduce from default 300px to 150px */
+}
+
+.awsui_layout-content_14iqq_1x0lx_125 {
+  margin-left: 150px !important;  /* Match the new navigation width */
 }

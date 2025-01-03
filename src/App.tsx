@@ -1,4 +1,3 @@
-
 import '@aws-amplify/ui-react/styles.css';
 import './assets/css/theme.css';
 import brainLogo from './assets/images/cts-brain-logo.png';
@@ -9,12 +8,11 @@ import ErrorBoundary from './components/ErrorBoundary';
 import CreateProjectModal from './components/common/CreateProjectModal';
 import AnimatedAssistant from './components/common/eda/AnimatedAssistant';
 
-
 import { Authenticator } from '@aws-amplify/ui-react';
-import { Alert, AppLayout, SideNavigation, SideNavigationProps, SpaceBetween, Spinner, TopNavigation } from '@cloudscape-design/components';
+import { Alert, AppLayout, BreadcrumbGroup, SideNavigation, SideNavigationProps, SpaceBetween, Spinner, TopNavigation } from '@cloudscape-design/components';
 import { generateClient } from "aws-amplify/api";
 import { AuthUser } from 'aws-amplify/auth';
-import { Route, BrowserRouter as Router, Routes, useNavigate } from 'react-router-dom';
+import { Route, BrowserRouter as Router, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from "../amplify/data/resource";
 import { ProjectContext } from './contexts/ProjectContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -40,8 +38,27 @@ const DatasetDetails = React.lazy(() => import('./components/pages/Datasets/Data
 const Predictions = React.lazy(() => import('./components/pages/Models/Predictions'));
 
 const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
-  const { setUserInfo } = useUser();
+  const { setUserInfo } = useUser(); 
+  const location = useLocation();
+  const [navigationOpen, setNavigationOpen] = useState(true);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [hasSetInitialState, setHasSetInitialState] = useState(false);
   
+  // Check if we're on the model details page
+  const isModelDetailsPage = location.pathname.match(/^\/models\/[^/]+$/);
+
+  // Effect to handle initial tools panel visibility only
+  useEffect(() => {
+    if (isModelDetailsPage && !hasSetInitialState) {
+      setToolsOpen(true);
+      setNavigationOpen(false);
+      setHasSetInitialState(true);
+    } else if (!isModelDetailsPage) {
+      // Reset the flag when leaving model details page
+      setHasSetInitialState(false);
+    }
+  }, [isModelDetailsPage, hasSetInitialState]);
+
   useEffect(() => {
     const initializeUser = async () => {
       if (user) {
@@ -172,7 +189,6 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
           }
         }}
       />
-      <AnimatedAssistant />
     </SpaceBetween>
   );
 
@@ -207,6 +223,20 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
       : 'light-theme awsui-light-mode';
   }, [theme]);
 
+  const getBreadcrumbs = (pathname: string) => {
+    const paths = pathname.split('/').filter(Boolean);
+    const breadcrumbs = [{ text: 'Home', href: '/' }];
+    
+    let currentPath = '';
+    paths.forEach((path) => {
+      currentPath += `/${path}`;
+      const text = path.charAt(0).toUpperCase() + path.slice(1);
+      breadcrumbs.push({ text, href: currentPath });
+    });
+    
+    return breadcrumbs;
+  };
+
   return (
     <ProjectContext.Provider value={{ currentProject, setCurrentProject, projects, setProjects }}>
       <div className="app-container">
@@ -223,12 +253,17 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
         )}
         <AppLayout
           navigation={sideNavigation}
+          navigationOpen={navigationOpen}
+          onNavigationChange={({ detail }) => setNavigationOpen(detail.open)}
+          tools={<AnimatedAssistant />}
+          toolsOpen={toolsOpen}
+          onToolsChange={({ detail }) => setToolsOpen(detail.open)}
           content={
             <>
               {isLoading ? (
-                 <h3>Loading Projects...<Spinner size="large"/></h3>
+                <h3>Loading Projects...<Spinner size="large"/></h3>
               ) : (
-                <>
+                <SpaceBetween size="l">
                   {showProjectWarning && (
                     <Alert
                       type="warning"
@@ -237,30 +272,34 @@ const AppContent: React.FC<AppContentProps> = ({ signOut, user }) => {
                       Please select a project from the top navigation or create a new one.
                     </Alert>
                   )}
+                  <BreadcrumbGroup
+                    items={getBreadcrumbs(window.location.pathname)}
+                    ariaLabel="Breadcrumbs"
+                  />
                   <Suspense fallback={<Spinner />}>
                     <Routes>
                       <Route path="/" element={<LandingPage />} />
                       <Route path="/datasets" element={<DatasetsHome />} />
                       <Route path="/datasets/create" element={<CreateDataset />} />
                       <Route path="/datasets/:id" element={<DatasetDetails />} />
+                      
                       <Route path="/models" element={<ModelsHome />} />
                       <Route path="/models/create" element={<CreateModel />} />
                       <Route path="/models/:modelId" element={<ModelDetails />} />
                       <Route path="/models/predictions" element={<Predictions />} />
                     </Routes>
                   </Suspense>
-                </>
+                </SpaceBetween>
               )}
             </>
           }
-          tools={<AnimatedAssistant />}
           contentType="default"
           disableContentPaddings={false}
           toolsHide={false}
           navigationHide={false}
           headerSelector="#header"
           footerSelector="#footer"
-          navigationWidth={300}
+          navigationWidth={220}
           toolsWidth={350}
           maxContentWidth={Number.MAX_VALUE}
         />

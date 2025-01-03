@@ -15,6 +15,7 @@ import DatasetUploader from '../../common/DatasetUploader';
 import DatasetVisualizer from '../../common/DatasetVisualizer';
 
 import {
+  Alert,
   Button,
   Container,
   FormField,
@@ -39,7 +40,6 @@ const CreateModel: React.FC = () => {
   const [modelName, setModelName] = useState('');
   const [existingModels, setExistingModels] = useState<Model[]>([]); 
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [selectedVersion, setSelectedVersion] = useState(1)
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [uniqueDatasetNames, setUniqueDatasetNames] = useState<string[]>([]);
   const [selectedDatasetName, setSelectedDatasetName] = useState<string | null>(null);
@@ -51,10 +51,7 @@ const CreateModel: React.FC = () => {
   const [columns, setColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [isCreatingNewModel, setIsCreatingNewModel] = useState(false); 
-  const [newModelName, setNewModelName] = useState(''); 
   const [newModelDescription, setNewModelDescription] = useState('');
-  const [datasetVersions, setDatasetVersions] = useState<DatasetVersion[]>([]);
   const [selectedDatasetVersions, setSelectedDatasetVersions] = useState<DatasetVersion[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,25 +84,55 @@ const CreateModel: React.FC = () => {
 
   useEffect(() => {
     console.log('Location state:', location.state);
-    console.log('Initial dataset:', initialDataset);
     
-    if (initialDataset) {
-        // Set the initial dataset
+    const selectedDatasetVersion = location.state?.selectedDatasetVersion;
+    if (selectedDatasetVersion) {
+        // Fetch the dataset details
+        const fetchDatasetDetails = async () => {
+            try {
+                const { data: dataset } = await client.models.Dataset.get({ 
+                    id: selectedDatasetVersion.datasetId 
+                });
+                
+                if (dataset) {
+                    setSelectedDataset({
+                        id: dataset.id || '',
+                        name: dataset.name || '',
+                        description: dataset.description || '',
+                        owner: dataset.owner || '',
+                        projectId: dataset.projectId || '',
+                        createdAt: dataset.createdAt || null,
+                        updatedAt: dataset.updatedAt || null
+                    });
+                    
+                    setSelectedDatasetName(dataset.name);
+                    setSelectedDatasetVersion(selectedDatasetVersion.version);
+                    setSelectedDatasetVersions([selectedDatasetVersion]);
+                    
+                    // Fetch preview data for the selected version
+                    await fetchDatasetVersionPreview(selectedDatasetVersion);
+                }
+            } catch (error) {
+                console.error('Error fetching dataset details:', error);
+            }
+        };
+        
+        fetchDatasetDetails();
+    } else if (initialDataset) {
+        // Handle initialDataset case (existing code)
         setSelectedDataset({
             id: initialDataset.datasetId,
             name: initialDataset.datasetName,
-            description: '',  // Add required fields
+            description: '',
             owner: '',
             projectId: currentProject?.id || '',
             createdAt: null,
             updatedAt: null
         });
         
-        // Set version information
         setSelectedDatasetName(initialDataset.datasetName);
         setSelectedDatasetVersion(initialDataset.version);
         
-        // Fetch dataset versions for the selected dataset
         if (initialDataset.datasetId) {
             fetchDatasetVersions(initialDataset.datasetId);
         }
@@ -477,56 +504,25 @@ const CreateModel: React.FC = () => {
     }
   };
 
-  const handleModelCreated = (model: Model) => {
-    setExistingModels([...existingModels, model]);
-    setSelectedModelId(model.id);
-    setIsCreatingNewModel(false);
-  };
-
-  const createNewModel = async () => {
-    if (!userInfo?.username) {
-      console.error('User information not loaded');
-      return;
-    }
-
-    try {
-      const { data: newModel, errors } = await client.models.Model.create({
-        name: newModelName,
-        description: newModelDescription,
-        owner: userInfo.username,
-        projectId: currentProject?.id || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-      if (newModel) {
-        const typedModel: Model = {
-          id: newModel.id || '',
-          name: newModel.name || '',
-          description: newModel.description || '',
-          owner: newModel.owner || '',
-          projectId: newModel.projectId || '',
-          createdAt: newModel.createdAt || null,
-          updatedAt: newModel.updatedAt || null
-        };
-        
-        handleModelCreated(typedModel);
-        setModelName(typedModel.name);
-      }
-    } catch (error) {
-      console.error('Error creating new model:', error);
-    }
-  };
-
   return (
     <SpaceBetween size="l">
         <Header variant="h1">Create New Model</Header>
+        
+        {error && (
+            <Alert 
+                type="error" 
+                dismissible
+                onDismiss={() => setError(null)}
+            >
+                {error}
+            </Alert>
+        )}
         
         <Container
             header={<Header variant="h2">Model Configuration</Header>}
         >
             <SpaceBetween size="l">
-                <FormField label="Select Existing Model">
+                <FormField label="Select Model">
                     <Select
                         selectedOption={
                             selectedModelId === null && modelName ? 
@@ -541,9 +537,9 @@ const CreateModel: React.FC = () => {
                             const newValue = detail.selectedOption.value || null;
                             
                             if (newValue === '+ Create new model') {
-                                setIsCreatingNewModel(true);
-                                setSelectedModelId(null);  // Clear selected model ID
-                                setModelName('');  // Clear model name
+                                setSelectedModelId(null);  
+                                setModelName('');
+                                setNewModelDescription('');
                             } else {
                                 setSelectedModelId(newValue);
                                 const selectedModel = existingModels.find(m => m.id === newValue);
@@ -563,7 +559,7 @@ const CreateModel: React.FC = () => {
                     />
                 </FormField>
 
-                {(!selectedModelId || selectedModelId === '+ Create new model') && (
+                {!selectedModelId && (
                     <SpaceBetween size="m">
                         <FormField label="Model Name">
                             <Input
@@ -635,7 +631,7 @@ const CreateModel: React.FC = () => {
                                     header: col,
                                     cell: (item: any) => item[col],
                                 }))}
-                                version={datasetVersions.find(v => 
+                                version={selectedDatasetVersions.find(v => 
                                     v.datasetId === selectedDataset.id && 
                                     v.version === selectedDatasetVersion
                                 )}

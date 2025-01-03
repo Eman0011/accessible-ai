@@ -215,3 +215,43 @@ export interface ModelMetrics {
   };
   total_pipelines?: number;
 }
+
+export interface ModelReport {
+  summary: {
+    title: string;
+    overview: string;
+    keyFindings: string[];
+    recommendations: string[];
+    deployment: {
+      readiness: string;
+      considerations: string[];
+      monitoringRecommendations: string[];
+    };
+  };
+  pipeline: {
+    overview: string;
+    steps: Array<{
+      name: string;
+      description: string;
+      impact: string;
+      strengths: string[];
+      limitations: string[];
+      parameters?: {
+        name: string;
+        value: any;
+        impact: string;
+      }[];
+    }>;
+  };
+  performance: {
+    overview: string;
+    metrics: {
+      [key: string]: {
+        interpretation: string;
+        analysis?: string;
+      };
+    };
+    strengths: string[];
+    limitations: string[];
+  };
+}

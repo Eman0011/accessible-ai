@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Box, SpaceBetween, Spinner } from '@cloudscape-design/components';
 import Lottie from 'lottie-react';
 import { useEffect, useState } from 'react';
@@ -167,8 +168,6 @@ const AnimatedAssistant = () => {
             loop={true}
           />
         )}
-      </div>
-      <div style={{ padding: '10px' }}>
       </div>
       {showChat && <ChatBox />}
     </SpaceBetween>
